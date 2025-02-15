@@ -1,0 +1,107 @@
+[project]
+name = "hybrid-search-with-context-improvements"
+description = "A RAG implementation using hybrid search with context optimisations."
+keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "ai", "research"]
+
+license = {text = "BSD-3-Clause"}
+readme = "README.md"
+
+authors = [
+    {name = "Eloy Lafuente (stronk7)", email = "stronk7@stronk7.com"},
+]
+
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    'License :: OSI Approved :: BSD License',
+    "Programming Language :: Python :: 3",
+    "Environment :: Console",
+    "Private :: Do Not Upload",
+]
+
+dynamic = ["version"]
+
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp == 3.10.10",
+    "tqdm == 4.67.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "build == 1.2.2",
+    "coverage == 7.6.9",
+    "detect-secrets == 1.5.0",
+    "pre-commit == 4.0.1",
+    "pyright == 1.1.392",
+    "ruff == 0.8.2",
+    "ruff-lsp == 0.0.59",
+]
+
+[project.scripts]
+hci_load = "hci:load:main"
+hci_index = "hci:index:main"
+hci_search = "hci:search:main"
+
+[project.urls]
+Homepage = "https://git.in.moodle.com/research/hybrid_search_context_improv"
+Documentation = "https://git.in.moodle.com/research/hybrid_search_context_improv"
+Repository = "https://git.in.moodle.com/research/hybrid_search_context_improv"
+
+[tool.coverage.run]
+branch = true
+source = [
+    "hci",
+]
+omit = [
+    "tests"
+]
+
+[tool.pyright]
+include = [
+    "hci"
+]
+exclude = [
+    "tests"
+]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+preview = true
+
+[tool.ruff.lint]
+# https://docs.astral.sh/ruff/rules
+select = [
+    "E",    # pycodestyle (errors, all them)
+    "F",    # pyflakes
+    "I",    # imports
+    "N",    # pep8 naming
+    "D",    # pydocstyle
+    "Q",    # flake8-quotes
+    "ASYNC",# flake8-async
+    "CPY",  # copyright header
+    "EM",   # flake8-errmsg
+    "UP",   # pyupgrade
+]
+ignore = [
+    "D203", # 1 blank line required before class docstring (incompatible with D211, that we use)
+    "D213", # Multi-line docstring summary should start at the second line (incompatible with D212, that we use)
+]
+
+[tool.ruff.lint.isort]
+lines-between-types = 1
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/test_**.py" = ["D101", "D102", "D103"] # Don't require doc strings for tests
+
+[build-system]
+requires = ["setuptools", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools_scm]

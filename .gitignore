@@ -1,0 +1,20 @@
+# Any dotenv file
+.env*
+# Some configuration files
+config*.yml
+credentials.json
+# Any storage directory
+storage*/
+# Coverage database
+.coverage
+# Some IDEs own files
+.idea/
+# Python virtual environment
+.venv/
+# Python bytecode caches
+__pycache__
+*.pyc
+# Build / dist directories
+build/
+dist/
+*.egg-info
