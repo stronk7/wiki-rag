@@ -3,10 +3,11 @@
 import json
 import pprint
 from datetime import datetime, timezone
+from pathlib import Path
 from uuid import UUID
 
 from hci import ROOT_DIR, __version__, LOG_LEVEL
-from hci.load.util import get_mediawiki_pages_list, get_mediawiki_parsed_pages
+from hci.load.util import get_mediawiki_pages_list, get_mediawiki_parsed_pages, save_parsed_pages
 from hci.util import setup_logging
 
 from dotenv import load_dotenv
@@ -44,12 +45,22 @@ def main():
     mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
     
+    loader_dump_path = os.getenv("LOADER_DUMP_PATH")
+    if  loader_dump_path:
+        loader_dump_path = Path(loader_dump_path)
+    else:
+        loader_dump_path = ROOT_DIR / "data"
+    # If the directory does not exist, create it.
+    if not loader_dump_path.exists():
+        logger.error(f"Data directory {loader_dump_path} not found. Please ensure it exists. Exiting.")
+        sys.exit(1)
+        
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
     # File name is the collection name + toady's date and time (hours and minutes) + .json
-    dump_filename = f"{collection_name}-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"
+    dump_filename = loader_dump_path / f"{collection_name}-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"
 
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
@@ -65,20 +76,10 @@ def main():
     parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent)
     logger.info(f"Parsed {len(parsed_pages)} pages.")
 
-
     logger.info(f"Saving parsed pages to {dump_filename}")
+    save_parsed_pages(parsed_pages, dump_filename)
 
-    class CustomEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, UUID):
-                return str(obj)
-            # Let the base class default method raise the TypeError
-            return json.JSONEncoder.default(self, obj)
-
-    with open(dump_filename, "w") as f:
-        json.dump(pages, f, cls=CustomEncoder)
+    logger.info(f"hci_load finished.")
     
-
-
 if __name__ == "__main__":
     main()

@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 
 """ Util functions to proceed to load and parse the mediawiki pages"""
+import json
 import re
 
 import requests
@@ -85,8 +86,6 @@ def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent
     :return: The list of parsed pages.
     """
     parsed_pages = []
-    # TODO: Remove this line, it's only for testing purposes (100 last pages).
-    pages = pages[-60:-40]
     for page in tqdm(pages, desc=f"Processing pages", unit="page"):
         time.sleep(random.uniform(2, 3))  # We aren't in a hurry (it's only a few requests).
         try:
@@ -245,7 +244,7 @@ def tidy_sections_text(mediawiki_url, sections, categories, internal_links, exte
         # Final touches, whitespace trim the text and remove double line feeds.
         section["text"] = re.sub(r"\n{2,}", "\n", section["text"].strip())
         
-def calculate_relationships(sections):
+def calculate_relationships(sections: list[dict]):
 
     parent_candidates = {}
     for section in sections:
@@ -285,7 +284,7 @@ def calculate_relationships(sections):
                     child_to_update["next"] = section["children"][child_index + 1:] # From the next to the end.
 
 # Let's iterate over all pages and their sections and, if they contain internal (wiki) links, try to find to which section they point.
-def convert_internal_links(pages):
+def convert_internal_links(pages: list[dict]):
     for page in tqdm(pages, desc=f"Converting wiki links", unit="sections"):
         sections = page["sections"]
         for section in sections:
@@ -298,3 +297,14 @@ def convert_internal_links(pages):
                     target = [s for s in sections if s["doc_title"] == link]
                 if target:
                     section["relations"].append(target[0]["id"])
+                    
+def save_parsed_pages(parsed_pages: list[dict], output_file: str):
+    class CustomEncoder(json.JSONEncoder):
+        def default(self, obj):
+            if isinstance(obj, uuid.UUID):
+                return str(obj)
+            # Let the base class default method raise the TypeError
+            return json.JSONEncoder.default(self, obj)
+
+    with open(output_file, "w") as f:
+        json.dump(parsed_pages, f, cls=CustomEncoder)

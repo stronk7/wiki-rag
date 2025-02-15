@@ -18,3 +18,5 @@ __pycache__
 build/
 dist/
 *.egg-info
+# Data directory (loader and indexer files)
+data/

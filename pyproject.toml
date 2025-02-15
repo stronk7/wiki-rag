@@ -1,5 +1,5 @@
 [project]
-name = "hybrid-search-with-context-improvements"
+name = "hci"
 description = "A RAG implementation using hybrid search with context optimisations."
 keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "ai", "research"]
 
@@ -26,6 +26,8 @@ dynamic = ["version"]
 requires-python = ">=3.12"
 dependencies = [
     "aiohttp == 3.10.10",
+    "colorlog == 6.9.0",
+    "python-dotenv == 1.0.1",
     "tqdm == 4.67.1",
 ]
 
@@ -41,9 +43,10 @@ dev = [
 ]
 
 [project.scripts]
-hci_load = "hci:load:main"
-hci_index = "hci:index:main"
-hci_search = "hci:search:main"
+hci-load = "hci.load.main:main"
+#hci-index = "hci:index:main"
+#hci-search = "hci:search:main"
+#hci-serve = "hci:serve:main"
 
 [project.urls]
 Homepage = "https://git.in.moodle.com/research/hybrid_search_context_improv"
@@ -105,3 +108,6 @@ requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
+
+[tool.setuptools.packages.find]
+include = ["hci"]
