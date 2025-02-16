@@ -1,13 +1,12 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
-import json
-import pprint
+
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import UUID
 
 from hci import ROOT_DIR, __version__, LOG_LEVEL
-from hci.load.util import get_mediawiki_pages_list, get_mediawiki_parsed_pages, save_parsed_pages
+from hci.index.util import load_parsed_information, create_temp_collection_schema, index_pages, \
+    replace_previous_collection
 from hci.util import setup_logging
 
 from dotenv import load_dotenv
@@ -18,11 +17,11 @@ import logging
 
 
 def main():
-    """ Load and parse all the files, storing the information in a file with date"""
+    """ Make an index from the json information present in the specified file """
 
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
-    logger.info("hci-load starting up...")
+    logger.info("hci-index starting up...")
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
@@ -67,19 +66,39 @@ def main():
         logger.info("User agent not found in environment. Using default.")
         user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
     user_agent = f"{user_agent.format(version=__version__)}"
+    
+    embedding_model = os.getenv("EMBEDDING_MODEL")
+    if not embedding_model:
+        logger.error("Embedding model not found in environment. Exiting.")
+        sys.exit(1)
+        
+    embedding_dimensions = int(os.getenv("EMBEDDING_DIMENSIONS"))
+    if not embedding_dimensions:
+        logger.error("Embedding dimensions not found in environment. Exiting.")
+        sys.exit(1)
+    
+    # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
+    input_file = loader_dump_path / "moodledocs405-2025-02-15-18-51.json"
 
-    logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
-    pages = get_mediawiki_pages_list(mediawiki_url, mediawiki_namespaces, user_agent)
-    logger.info(f"Loaded {len(pages)} pages.")
+    logger.info(f"Loading parsed pages from json: {input_file}, namespaces: {mediawiki_namespaces}")
+    ### do something
+    pages = load_parsed_information(input_file)
+    logger.info(f"Loaded {len(pages)} pages from json file")
 
-    logger.info(f"Parsing and splitting pages")
-    parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent)
-    logger.info(f"Parsed {len(parsed_pages)} pages.")
+    temp_collection_name = f"{collection_name}_temp"
+    logger.info(f"Preparing new temp collection \"{temp_collection_name}\" schema")
+    create_temp_collection_schema(temp_collection_name, embedding_dimensions)
+    logger.info(f"Collection \"{temp_collection_name}\" created.")
 
-    logger.info(f"Saving parsed pages to {dump_filename}")
-    save_parsed_pages(parsed_pages, dump_filename)
+    logger.info(f"Indexing pages into temp collection \"{temp_collection_name}\"")
+    [ total_pages, total_sections ] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
+    logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+    
+    logger.info(f"Replacing previous collection \"{collection_name}\" with new collection \"{temp_collection_name}\"")
+    replace_previous_collection(collection_name, temp_collection_name)
+    logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
 
-    logger.info(f"hci-load finished.")
+    logger.info(f"hci-index finished.")
     
 if __name__ == "__main__":
     main()
