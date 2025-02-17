@@ -27,7 +27,11 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp == 3.10.10",
     "colorlog == 6.9.0",
+    "langchain == 0.3.17",
+    "langchain_core == 0.3.33",
     "langchain_openai == 0.3.3",
+    "langgraph == 0.2.69",
+    "langsmith == 0.3.6",
     "pymilvus == 2.5.4",
     "python-dotenv == 1.0.1",
     "tqdm == 4.67.1",
@@ -47,7 +51,7 @@ dev = [
 [project.scripts]
 hci-load = "hci.load.main:main"
 hci-index = "hci.index.main:main"
-#hci-search = "hci:search:main"
+hci-search = "hci.search.main:main"
 #hci-serve = "hci:serve:main"
 
 [project.urls]

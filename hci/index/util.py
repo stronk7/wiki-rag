@@ -2,6 +2,7 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 
 """ Util functions to proceed to index the information to Milvus collection"""
+
 import json
 import logging
 
