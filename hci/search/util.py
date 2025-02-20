@@ -9,7 +9,6 @@ from typing import TypedDict
 from langchain import hub
 from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
 from langchain_core.runnables import RunnableConfig
-from langchain_core.documents import Document
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
@@ -21,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 # Define the configuration that the graph will use.
+# TODO: Check how this is used/validated and how to better integrate in the OpenAI API (FastAPI).
 class Config(TypedDict):
     prompt_name: str
     collection_name: str
@@ -28,7 +28,10 @@ class Config(TypedDict):
     embedding_dimension: int
     llm_model: str
     search_distance_cutoff: float
-
+    max_completion_tokens: int
+    top_p: float
+    temperature: float
+    stream: bool
 
 # Define the overall state for the graph
 class OverallState(TypedDict):
@@ -36,17 +39,15 @@ class OverallState(TypedDict):
     question: str
     context: list[dict]
     answer: str | None
-    
-    
+
+
 # To track intermediate information during the graph execution
-class InternalState(OverallState):
+class InternalState(OverallState, TypedDict):
     vector_search: list[dict]
-    
+
 def build_graph() -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
 
-    # TODO: Add the organise function.
-    # graph_builder = StateGraph(State).add_sequence([retrieve, organise, generate])
     graph_builder = StateGraph(OverallState, Config).add_sequence([prepare, retrieve, optimise, generate])
     graph_builder.add_edge(START, "prepare")
     graph = graph_builder.compile()
@@ -54,7 +55,7 @@ def build_graph() -> CompiledStateGraph:
 
 def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     """ Load the prompts for the RAG model."""
-    
+
     # Try to load the prompt from langsmith, falling back to hardcoded one.
     # Note this (to pull the prompt) requires langsmith to be available and configured with:
     # LANGSMITH_ENDPOINT = "https://xxx.api.smith.langchain.com"
@@ -87,38 +88,37 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
         chat_prompt = ChatPromptTemplate(messages)
     finally:
         return chat_prompt
-    
+
 def prepare(state: OverallState) -> dict:
     """Given the overall state, prepare the internal state for the graph."""
     return InternalState()
-    
-    
+
 def retrieve(state: InternalState, config: RunnableConfig) -> dict:
     """Retrieve the best matches from the indexed database.
-    
+
     Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
     and a BM25 search (sparse, full text). And then will rerank results with the weighted
     reranker.
     """
-    
+
     # Note that here we are using the Milvus own library instead of the LangChain one because
     # the LangChain one doesn't support many of the features used here.
-    
+
     embeddings = OpenAIEmbeddings(
         model=config["configurable"].get("embedding_model"),
         dimensions=config["configurable"].get("embedding_dimension")
     )
     query_embedding = embeddings.embed_query(state["question"])
-    
+
     milvus = MilvusClient("http://localhost:19530")
-    
+
     # TODO: Make a bunch of the defaults used here configurable.
     dense_search_limit = 15
     sparse_search_limit = 15
     sparse_search_drop_ratio = 0.2
     hybrid_rerank_limit = 15
     rerank_weights = (0.7, 0.3)
-    
+
     # Define the dense search and its parameters.
     dense_search_params = {
         "metric_type": "IP",
@@ -129,7 +129,7 @@ def retrieve(state: InternalState, config: RunnableConfig) -> dict:
     dense_search = AnnSearchRequest(
         [query_embedding], "dense_vector", dense_search_params, limit=dense_search_limit,
     )
-    
+
     # Define the sparse search and its parameters.
     sparse_search_params = {
         "metric_type": "BM25",
@@ -138,7 +138,7 @@ def retrieve(state: InternalState, config: RunnableConfig) -> dict:
     sparse_search = AnnSearchRequest(
         [state["question"]], "sparse_vector", sparse_search_params, limit=sparse_search_limit,
     )
-    
+
     # Perform the hybrid search.
     retrieved_docs = milvus.hybrid_search(
         config["configurable"].get("collection_name"),
@@ -160,7 +160,7 @@ def retrieve(state: InternalState, config: RunnableConfig) -> dict:
         ]
     )
     milvus.close()
-    
+
     # Return only the docs which distance is below the cutoff.
     #distance_cutoff = config["configurable"].get("search_distance_cutoff")
     #return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
@@ -170,7 +170,7 @@ def optimise(state: InternalState, config: RunnableConfig) -> dict:
     # Only if there are vector search results.
     if not state["vector_search"]:
         return {"context": []}
-    
+
     top = 5 # TODO: Make this part of the state.
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
     # making a dictionary with the counts. They will be weighted differently, following this order:
@@ -217,7 +217,7 @@ def optimise(state: InternalState, config: RunnableConfig) -> dict:
 
 def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5, ):
     """ Given the originally retrieved docs and the sorted (weighted items, build the rag final context.
-    
+
     POC: Build the new context by using Parent, Own and Children elements."""
     context_list = []
     not_retrieved = []
@@ -295,16 +295,22 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     milvus.close()
     return missing_docs
 
-def generate(state: InternalState, config: RunnableConfig) -> dict:
+def generate(state: InternalState, config: RunnableConfig):
     """Generate the answer from the retrieved documents."""
 
     llm = ChatOpenAI(
         model=config["configurable"].get("llm_model"),
-        temperature=0.1,
-        streaming=True)
-    
+        max_tokens=config["configurable"].get("max_completion_tokens"),
+        top_p=config["configurable"].get("top_p"),
+        temperature=config["configurable"].get("temperature"),
+        # streaming=config["configurable"].get("stream"),
+    )
+
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
+
     chat_prompt = load_prompts_for_rag(config["configurable"].get("prompt_name"))
     chat = chat_prompt.invoke({"context": docs_content, "question": state["question"]})
-    response = llm.invoke(chat)
+
+    response = llm.invoke(chat, config)
+
     return {"answer": response.content}

@@ -8,6 +8,8 @@ from hci import ROOT_DIR, __version__, LOG_LEVEL
 from hci.util import setup_logging
 from hci.search.util import build_graph
 
+from langchain_core.messages import AIMessageChunk
+
 import argparse
 from dotenv import load_dotenv
 import sys
@@ -36,10 +38,11 @@ def main():
         logger.error("Mediawiki URL not found in environment. Exiting.")
         sys.exit(1)
 
-    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES").split(',')
+    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES")
     if not mediawiki_namespaces:
         logger.error("Mediawiki namespaces not found in environment. Exiting.")
         sys.exit(1)
+    mediawiki_namespaces = mediawiki_namespaces.split(',')
     mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
 
@@ -75,10 +78,11 @@ def main():
         logger.error("Embedding model not found in environment. Exiting.")
         sys.exit(1)
 
-    embedding_dimensions = int(os.getenv("EMBEDDING_DIMENSIONS"))
+    embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
     if not embedding_dimensions:
         logger.error("Embedding dimensions not found in environment. Exiting.")
         sys.exit(1)
+    embedding_dimensions = int(embedding_dimensions)
         
     llm_model = os.getenv("LLM_MODEL")
     if not llm_model:
@@ -88,11 +92,13 @@ def main():
     # Let's accept arg[1] as the question to be asked.
     parser = argparse.ArgumentParser()
     parser.add_argument("question", nargs="+", help="The question to be asked.")
+    parser.add_argument("--stream", "-s", action="store_true", help="Stream the output.")
 
     args = parser.parse_args()
 
     question = " ".join(args.question)
-    
+
+    stream = args.stream if args.stream else False
     logger.info(f"Question: \"{question}\"")
     
     logger.info(f"Building the graph")
@@ -107,17 +113,28 @@ def main():
             "embedding_dimension": embedding_dimensions,
             "llm_model": llm_model,
             "search_distance_cutoff": 0.6,
+            "max_completion_tokens": None,
+            "temperature": 0.1,
+            "top_p": .95,
+            "stream": stream,
         }
     }
     
     # display(Image((graph.get_graph().draw_mermaid_png())))
     
     # And, finally, run a search.
-    logger.info(f"Running the search")
-    run = graph.invoke({"question": question}, config=config)
-    print("")
-    print(f"\033[93m{run["answer"][:500]} ...\033[0m")
-    print("")
+    if not stream:
+        logger.info(f"Running the search (non-streaming)")
+        run = graph.invoke({"question": question}, config=config)
+        print(f"\033[93m{run["answer"]}\033[0m", end="")
+    else:
+        logger.info(f"Running the search (streaming)")
+        for message, metadata in graph.stream({"question": question}, config=config, stream_mode="messages"):
+            assert isinstance(message, AIMessageChunk)
+            assert isinstance(metadata, dict)
+            if metadata.get("langgraph_node") == "generate" and message.content:
+                print(f"\033[93m{message.content}\033[0m", end="", flush=True)
+    print("", end="\n\n")
 
     logger.info(f"hci-search finished.")
 
