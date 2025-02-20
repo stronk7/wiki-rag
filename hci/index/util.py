@@ -5,6 +5,7 @@
 
 import json
 import logging
+from pathlib import Path
 
 from langchain_openai import OpenAIEmbeddings
 
@@ -15,7 +16,7 @@ from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
-def load_parsed_information(input_file: str) -> list[dict]:
+def load_parsed_information(input_file: Path) -> list[dict]:
     """Load the parsed information from the file."""
     pages = []
     try:
