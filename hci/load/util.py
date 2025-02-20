@@ -57,6 +57,7 @@ def get_mediawiki_pages_list(mediawiki_url: str, namespaces: list[int], user_age
             'aplimit': chunk,
             "apdir": "ascending",
         }
+        current = 0
         with tqdm(total=max_chunks, desc=f"Loading namespace {namespace}") as pbar:
             while True:
                 if next_page:
@@ -69,9 +70,11 @@ def get_mediawiki_pages_list(mediawiki_url: str, namespaces: list[int], user_age
                 if "continue" in data:
                     next_page = data["continue"]["apcontinue"]
                 else:
+                    pbar.update(max_chunks - current)
                     break
     
                 time.sleep(random.uniform(2, 5))  # We aren't in a hurry (it's only a few requests).
+                current += 1
                 pbar.update(1)
     
     return pages
