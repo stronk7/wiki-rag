@@ -6,10 +6,12 @@
 import logging
 from typing import TypedDict
 
+from hci.server.util import Message
+
 from langchain import hub
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
 from langchain_core.runnables import RunnableConfig
-from langchain_core.messages import HumanMessage, AIMessage
+from langchain_core.messages import BaseMessage
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
 from langgraph.graph.state import StateGraph, CompiledStateGraph, START
@@ -35,7 +37,7 @@ class Config(TypedDict):
 
 # Define the overall state for the graph
 class OverallState(TypedDict):
-    history: list[HumanMessage | AIMessage]
+    history: list[BaseMessage]
     question: str
     context: list[dict]
     answer: str | None
@@ -53,7 +55,7 @@ def build_graph() -> CompiledStateGraph:
     graph = graph_builder.compile()
     return graph
 
-def load_prompts_for_rag(prompt_name: str, messages_history: list[HumanMessage | AIMessage]) -> ChatPromptTemplate:
+def load_prompts_for_rag(prompt_name: str, messages_history: list[BaseMessage]) -> ChatPromptTemplate:
     """ Load the prompts for the RAG model."""
 
     # Try to load the prompt from langsmith, falling back to hardcoded one.
@@ -65,6 +67,7 @@ def load_prompts_for_rag(prompt_name: str, messages_history: list[HumanMessage |
     chat_prompt = ChatPromptTemplate([])
     logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
+        prompt_name="kk"
         chat_prompt = hub.pull(prompt_name)
     except Exception as e:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}")
@@ -83,10 +86,10 @@ def load_prompts_for_rag(prompt_name: str, messages_history: list[HumanMessage |
         )
         messages = (
             system_prompt,
-            messages_history,
+            MessagesPlaceholder("history", optional=True),
             user_message,
         )
-        chat_prompt = ChatPromptTemplate(messages)
+        chat_prompt = ChatPromptTemplate.from_messages(messages)
     finally:
         return chat_prompt
 
@@ -305,7 +308,6 @@ def generate(state: InternalState, config: RunnableConfig) -> OverallState:
         max_tokens=config["configurable"].get("max_completion_tokens"),
         top_p=config["configurable"].get("top_p"),
         temperature=config["configurable"].get("temperature"),
-        # streaming=config["configurable"].get("stream"),
     )
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
@@ -313,7 +315,7 @@ def generate(state: InternalState, config: RunnableConfig) -> OverallState:
     chat_prompt = load_prompts_for_rag(
         config["configurable"].get("prompt_name"),
         state["history"])
-    chat = chat_prompt.invoke({"context": docs_content, "question": state["question"]})
+    chat = chat_prompt.invoke({"context": docs_content, "question": state["question"], "history": state["history"]})
 
     response = llm.invoke(chat, config)
 
