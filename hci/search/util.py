@@ -53,7 +53,7 @@ def build_graph() -> CompiledStateGraph:
     graph = graph_builder.compile()
     return graph
 
-def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
+def load_prompts_for_rag(prompt_name: str, messages_history: list[HumanMessage | AIMessage]) -> ChatPromptTemplate:
     """ Load the prompts for the RAG model."""
 
     # Try to load the prompt from langsmith, falling back to hardcoded one.
@@ -83,6 +83,7 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
         )
         messages = (
             system_prompt,
+            messages_history,
             user_message,
         )
         chat_prompt = ChatPromptTemplate(messages)
@@ -295,7 +296,8 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     milvus.close()
     return missing_docs
 
-def generate(state: InternalState, config: RunnableConfig):
+
+def generate(state: InternalState, config: RunnableConfig) -> OverallState:
     """Generate the answer from the retrieved documents."""
 
     llm = ChatOpenAI(
@@ -308,7 +310,9 @@ def generate(state: InternalState, config: RunnableConfig):
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
 
-    chat_prompt = load_prompts_for_rag(config["configurable"].get("prompt_name"))
+    chat_prompt = load_prompts_for_rag(
+        config["configurable"].get("prompt_name"),
+        state["history"])
     chat = chat_prompt.invoke({"context": docs_content, "question": state["question"]})
 
     response = llm.invoke(chat, config)

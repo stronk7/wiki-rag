@@ -125,11 +125,11 @@ def main():
     # And, finally, run a search.
     if not stream:
         logger.info(f"Running the search (non-streaming)")
-        run = graph.invoke({"question": question}, config=config)
+        run = graph.invoke({"question": question, "history": []}, config=config)
         print(f"\033[93m{run["answer"]}\033[0m", end="")
     else:
         logger.info(f"Running the search (streaming)")
-        for message, metadata in graph.stream({"question": question}, config=config, stream_mode="messages"):
+        for message, metadata in graph.stream({"question": question, "history": []}, config=config, stream_mode="messages"):
             assert isinstance(message, AIMessageChunk)
             assert isinstance(metadata, dict)
             if metadata.get("langgraph_node") == "generate" and message.content:
