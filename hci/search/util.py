@@ -65,21 +65,23 @@ def load_prompts_for_rag(prompt_name: str, messages_history: list[BaseMessage]) 
     # Optionally, automatic tracing can be enabled with:
     # LANGSMITH_TRACING = True
     chat_prompt = ChatPromptTemplate([])
-    logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
+    logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
-        prompt_name="kk"
+        prompt_name="mediawiki-rag"
         chat_prompt = hub.pull(prompt_name)
     except Exception as e:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}")
         # Use the manual prompt building instead.
         system_prompt = SystemMessagePromptTemplate.from_template(
             "You are an assistant for question-answering tasks related to Moodle user documentation."
-            "The sources for you knowledge are the MoodleDocs, available at https://docs.moodle.org ."
-            "Use the provided context to answer the question ONLY if it's relevant."
-            "DO NOT mention the term \"context\" in the answer."
-            "DO NOT repeat the question in the answer."
+            "The sources for you knowledge are the \"Moodle Docs\", available at https://docs.moodle.org"
+            "Avoid the term \"context\" in the answer."
+            "Avoid repeating the question in the answer."
+            "Try to answer with a few phrases in a concise and clear way."
+            "If the user asks for more details or explanations the answer can be longer."
             "If you don't know the answer, just say that you don't know. Never invent an answer."
-            "The provided information is in mediawiki format, try to convert that to markdown in the answer."
+            "Use the provided context to answer the question only if the context is relevant."
+            "The provided context is in mediawiki format, try to convert that to markdown in the answer."
         )
         user_message = HumanMessagePromptTemplate.from_template(
             "Question: {question} \n\nContext: {context}\n\nAnswer:"
@@ -287,6 +289,9 @@ def retrieve_all_elements(retrieved_docs, context_list, collection_name: str):
 
 def get_missing_from_vector_store(context_missing: list, collection_name: str) -> dict:
     """ Given the missing elements, let's retrieve them from the vector store."""
+
+    if not context_missing:
+        return {}
 
     milvus = MilvusClient("http://localhost:19530")
 

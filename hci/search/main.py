@@ -66,7 +66,7 @@ def main():
     # If tracing is enabled, put a name for the project.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
         os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
-        
+
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
         logger.info("User agent not found in environment. Using default.")
@@ -83,12 +83,12 @@ def main():
         logger.error("Embedding dimensions not found in environment. Exiting.")
         sys.exit(1)
     embedding_dimensions = int(embedding_dimensions)
-        
+
     llm_model = os.getenv("LLM_MODEL")
     if not llm_model:
         logger.error("LLM model not found in environment. Exiting.")
         sys.exit(1)
-        
+
     # Let's accept arg[1] as the question to be asked.
     parser = argparse.ArgumentParser()
     parser.add_argument("question", nargs="+", help="The question to be asked.")
@@ -100,10 +100,10 @@ def main():
 
     stream = args.stream if args.stream else False
     logger.info(f"Question: \"{question}\"")
-    
+
     logger.info(f"Building the graph")
     graph = build_graph()
-    
+
     # Prepare the configuration.
     config = {
         "configurable": {
@@ -119,9 +119,9 @@ def main():
             "stream": stream,
         }
     }
-    
+
     # display(Image((graph.get_graph().draw_mermaid_png())))
-    
+
     # And, finally, run a search.
     if not stream:
         logger.info(f"Running the search (non-streaming)")
