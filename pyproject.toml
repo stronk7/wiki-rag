@@ -1,7 +1,7 @@
 [project]
 name = "hci"
-description = "A RAG implementation using hybrid search with context optimisations."
-keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "ai", "research"]
+description = "A simple RAG implementation using hybrid search with context optimisations."
+keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "mediawiki", "ai", "research"]
 
 license = {text = "BSD-3-Clause"}
 readme = "README.md"
@@ -27,14 +27,18 @@ requires-python = ">=3.12"
 dependencies = [
     "aiohttp == 3.10.10",
     "colorlog == 6.9.0",
-    "langchain == 0.3.17",
-    "langchain_core == 0.3.33",
-    "langchain_openai == 0.3.3",
+    "fastapi == 0.115.8",
+    "langchain == 0.3.19",
+    "langchain-community == 0.3.18",
+    "langchain-core == 0.3.37",
+    "langchain-openai == 0.3.3",
     "langgraph == 0.2.69",
     "langsmith == 0.3.6",
     "pymilvus == 2.5.4",
     "python-dotenv == 1.0.1",
+    "tiktoken == 0.9.0",
     "tqdm == 4.67.1",
+    "uvicorn == 0.34.0",
 ]
 
 [project.optional-dependencies]
@@ -45,14 +49,13 @@ dev = [
     "pre-commit == 4.0.1",
     "pyright == 1.1.392",
     "ruff == 0.8.2",
-    "ruff-lsp == 0.0.59",
 ]
 
 [project.scripts]
 hci-load = "hci.load.main:main"
 hci-index = "hci.index.main:main"
 hci-search = "hci.search.main:main"
-#hci-serve = "hci:serve:main"
+hci-server = "hci.server.main:main"
 
 [project.urls]
 Homepage = "https://git.in.moodle.com/research/hybrid_search_context_improv"

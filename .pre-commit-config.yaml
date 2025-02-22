@@ -1,0 +1,25 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+    - id: trailing-whitespace
+    - id: end-of-file-fixer
+    - id: check-toml
+    - id: check-added-large-files
+
+  - repo: local # We'll be using the tools already installed locally as dev dependencies.
+    hooks:
+    - id: ruff
+      name: ruff
+      entry: ruff check
+      language: system
+      types: [python]
+    - id: pyright
+      name: pyright
+      entry: pyright
+      language: system
+      types: [python]
+    - id: detect-secrets
+      name: detect-secrets
+      entry: detect-secrets-hook
+      language: system
