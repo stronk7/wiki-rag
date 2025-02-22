@@ -27,7 +27,7 @@ def get_mediawiki_pages_list(mediawiki_url: str, namespaces: list[int], user_age
     """
 
     api_url = f"{mediawiki_url}/api.php"
-    
+
     # Get an estimation about the number of pages to load.
     headers = {
         "User-Agent": user_agent
@@ -38,13 +38,13 @@ def get_mediawiki_pages_list(mediawiki_url: str, namespaces: list[int], user_age
         'meta': 'siteinfo',
         'siprop': 'statistics',
     }
-    
+
     session = requests.Session()
-    
+
     result = session.get(url=api_url, params=params, headers=headers)
     articles = result.json()["query"]["statistics"]["articles"]
     max_chunks = (articles * len(namespaces) // chunk) + 1
-    
+
     pages = []
     next_page = None
     for namespace in namespaces:
@@ -62,28 +62,28 @@ def get_mediawiki_pages_list(mediawiki_url: str, namespaces: list[int], user_age
             while True:
                 if next_page:
                     params["apcontinue"] = next_page
-    
+
                 result = session.get(url=api_url, params=params, headers=headers)
                 data = result.json()
                 pages.extend(data["query"]["allpages"])
-    
+
                 if "continue" in data:
                     next_page = data["continue"]["apcontinue"]
                 else:
                     pbar.update(max_chunks - current)
                     break
-    
+
                 time.sleep(random.uniform(2, 5))  # We aren't in a hurry (it's only a few requests).
                 current += 1
                 pbar.update(1)
-    
+
     return pages
 
 def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent: str) -> list[dict]:
     """
     Parse the pages and split them into sections.
 
-    :param mediawiki_url: The url of the mediawiki site.   
+    :param mediawiki_url: The url of the mediawiki site.
     :param pages: The list of pages to parse.
     :param user_agent: The user agent to use in the requests.
     :return: The list of parsed pages.
@@ -114,7 +114,7 @@ def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent
     # Now that all the pages and their sections are in memory, we can convert any wiki link to a "relation" to the target section.
     # (that will improve the context organisation later, providing one more way to navigate the information).
     convert_internal_links(parsed_pages)  # Convert internal wiki links to point to existing UUIDs.
-    
+
     return parsed_pages
 
 def parse_page(mediawiki_url: str, page_id: int, user_agent: str) -> list:
@@ -246,7 +246,7 @@ def tidy_sections_text(mediawiki_url, sections, categories, internal_links, exte
         section["text"] = re.sub(pattern, "", section["text"])
         # Final touches, whitespace trim the text and remove double line feeds.
         section["text"] = re.sub(r"\n{2,}", "\n", section["text"].strip())
-        
+
 def calculate_relationships(sections: list[dict]):
 
     parent_candidates = {}
@@ -300,7 +300,7 @@ def convert_internal_links(pages: list[dict]):
                     target = [s for s in sections if s["doc_title"] == link]
                 if target:
                     section["relations"].append(target[0]["id"])
-                    
+
 def save_parsed_pages(parsed_pages: list[dict], output_file: str):
     class CustomEncoder(json.JSONEncoder):
         def default(self, obj):

@@ -24,7 +24,7 @@ def load_parsed_information(input_file: Path) -> list[dict]:
             pages = json.load(f)
     except Exception as e:
         logger.error(f"Error loading the parsed information from {input_file}: {e}")
-    
+
     return pages
 
 def create_temp_collection_schema(collection_name: str, embedding_dimension: int) -> None:
@@ -75,7 +75,7 @@ def create_temp_collection_schema(collection_name: str, embedding_dimension: int
     milvus.create_collection(collection_name, schema=schema, index_params=index_params)
 
     milvus.close()
-    
+
 def index_pages(pages: list[dict], collection_name: str, embedding_model: str, embedding_dimension: int) -> [int, int]:
     """Index the pages to the collection."""
     milvus = MilvusClient("http://localhost:19530")
@@ -83,7 +83,7 @@ def index_pages(pages: list[dict], collection_name: str, embedding_model: str, e
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
     embeddings = OpenAIEmbeddings(model=embedding_model, dimensions=embedding_dimension)
-    
+
     num_pages = 0
     num_sections = 0
 
@@ -93,7 +93,7 @@ def index_pages(pages: list[dict], collection_name: str, embedding_model: str, e
                 # TODO: We need to split the text in smaller chunks here, say 2500 max or so. For now, just trim.
                 section["text"] = section["text"][:5000]
                 logger.warning(f"Text too long for section \"{section["doc_title"]} / {section["title"]}\", trimmed to 5000 characters.")
-            
+
             dense_embedding = embeddings.embed_documents(
                 [f"{section["doc_title"]} / {section["title"]}\n\n{section["text"]}"])
             data = [
@@ -125,18 +125,18 @@ def index_pages(pages: list[dict], collection_name: str, embedding_model: str, e
 
 def replace_previous_collection(collection_name: str, temp_collection_name: str) -> None:
     """Replace the previous collection with the new one."""
-    
+
     milvus = MilvusClient("http://localhost:19530")
-    
+
     if not milvus.has_collection(temp_collection_name):
         raise ValueError(f"Collection {temp_collection_name} does not exist.")
-    
+
     if milvus.has_collection(collection_name):
         milvus.drop_collection(collection_name)
     milvus.rename_collection(temp_collection_name, collection_name)
-    
+
     # We have inserted lots of date to the collection, let's compact it.
     logger.info(f"Compacting collection {collection_name}")
     milvus.compact(collection_name)
-    
+
     milvus.close()

@@ -44,7 +44,7 @@ def main():
         sys.exit(1)
     mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
-    
+
     loader_dump_path = os.getenv("LOADER_DUMP_PATH")
     if  loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
@@ -54,7 +54,7 @@ def main():
     if not loader_dump_path.exists():
         logger.error(f"Data directory {loader_dump_path} not found. Please ensure it exists. Exiting.")
         sys.exit(1)
-        
+
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
@@ -80,6 +80,6 @@ def main():
     save_parsed_pages(parsed_pages, dump_filename)
 
     logger.info(f"hci-load finished.")
-    
+
 if __name__ == "__main__":
     main()
