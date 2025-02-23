@@ -1,35 +1,41 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-""" Util functions to proceed to index the information to Milvus collection"""
+"""Util functions to proceed to index the information to Milvus collection."""
 
 import json
 import logging
+
 from pathlib import Path
 
 from langchain_openai import OpenAIEmbeddings
-
-from pymilvus import MilvusClient, DataType, FieldSchema, CollectionSchema, Function, FunctionType
-
+from pymilvus import (
+    CollectionSchema,
+    DataType,
+    FieldSchema,
+    Function,
+    FunctionType,
+    MilvusClient,
+)
 from tqdm import tqdm
 
-
 logger = logging.getLogger(__name__)
+
 
 def load_parsed_information(input_file: Path) -> list[dict]:
     """Load the parsed information from the file."""
     pages = []
     try:
-        with open(input_file, "r") as f:
+        with open(input_file) as f:
             pages = json.load(f)
     except Exception as e:
         logger.error(f"Error loading the parsed information from {input_file}: {e}")
 
     return pages
 
+
 def create_temp_collection_schema(collection_name: str, embedding_dimension: int) -> None:
     """Create a temporary schema for the collection."""
-
     milvus = MilvusClient("http://localhost:19530")
     if milvus.has_collection(collection_name):
         milvus.drop_collection(collection_name)
@@ -76,6 +82,7 @@ def create_temp_collection_schema(collection_name: str, embedding_dimension: int
 
     milvus.close()
 
+
 def index_pages(pages: list[dict], collection_name: str, embedding_model: str, embedding_dimension: int) -> [int, int]:
     """Index the pages to the collection."""
     milvus = MilvusClient("http://localhost:19530")
@@ -87,12 +94,13 @@ def index_pages(pages: list[dict], collection_name: str, embedding_model: str, e
     num_pages = 0
     num_sections = 0
 
-    for page in tqdm(pages, desc=f"Processing pages", unit="pages"):
+    for page in tqdm(pages, desc="Processing pages", unit="pages"):
         for section in page["sections"]:
             if len(section["text"]) > 5000:
                 # TODO: We need to split the text in smaller chunks here, say 2500 max or so. For now, just trim.
                 section["text"] = section["text"][:5000]
-                logger.warning(f"Text too long for section \"{section["doc_title"]} / {section["title"]}\", trimmed to 5000 characters.")
+                logger.warning(f'Text too long for section "{section["doc_title"]} / {section["title"]}", '
+                                'trimmed to 5000 characters.')
 
             dense_embedding = embeddings.embed_documents(
                 [f"{section["doc_title"]} / {section["title"]}\n\n{section["text"]}"])
@@ -123,13 +131,14 @@ def index_pages(pages: list[dict], collection_name: str, embedding_model: str, e
     milvus.close()
     return [num_pages, num_sections]
 
+
 def replace_previous_collection(collection_name: str, temp_collection_name: str) -> None:
     """Replace the previous collection with the new one."""
-
     milvus = MilvusClient("http://localhost:19530")
 
     if not milvus.has_collection(temp_collection_name):
-        raise ValueError(f"Collection {temp_collection_name} does not exist.")
+        msg = f"Collection {temp_collection_name} does not exist."
+        raise ValueError(msg)
 
     if milvus.has_collection(collection_name):
         milvus.drop_collection(collection_name)

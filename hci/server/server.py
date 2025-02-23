@@ -1,7 +1,8 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-import asyncio
+"""Fast API server for the OpenAI-compatible API."""
+
 import json
 import logging
 import time
@@ -9,14 +10,19 @@ import uuid
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
+from langchain_core.messages import AIMessageChunk, BaseMessage
 
 import hci.server
 
 from hci import __version__
-from hci.server.util import ModelsListResponse, ModelResponse, ChatCompletionRequest, Message
-from hci.server.util import filter_completions_history, convert_messages_to_langchain
-
-from langchain_core.messages import AIMessageChunk
+from hci.server.util import (
+    ChatCompletionRequest,
+    Message,
+    ModelResponse,
+    ModelsListResponse,
+    convert_from_openai_to_langchain,
+    filter_completions_history,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +45,7 @@ any OpenAI-compatible [client](https://platform.openai.com/docs/libraries).
 It supports authentication, streaming completions, chat history, and more.
 """
 
-model = "moodledocs405" # This is the only model supported by this API.
+model = "moodledocs405"  # This is the only model supported by this API.
 
 tags_metadata = [
     {
@@ -68,9 +74,11 @@ app = FastAPI(
     openapi_tags=tags_metadata,
 )
 
+
 @app.get("/models", tags=["models"])
 @app.get("/v1/models", tags=["models"])
 async def models_list() -> ModelsListResponse:
+    """List the models available in the API."""
     return ModelsListResponse(
         object="list",
         data=[
@@ -87,6 +95,9 @@ async def models_list() -> ModelsListResponse:
 @app.post("/chat/completions", tags=["chat"])
 @app.post("/v1/chat/completions", tags=["chat"])
 async def chat_completions(request: ChatCompletionRequest):
+    """Generate chat completions based on the given messages and model."""
+    assert ("configurable" in hci.server.config)
+
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided.")
 
@@ -95,15 +106,15 @@ async def chat_completions(request: ChatCompletionRequest):
 
     if request.model != model:
         raise HTTPException(status_code=400, detail="Model not supported.")
-    
+
     logger.debug(f"Request: {request}")
-    
+
     # Update the configuration with the values coming from the request.
     hci.server.config["configurable"]["temperature"] = request.temperature
     hci.server.config["configurable"]["top_p"] = request.top_p
     hci.server.config["configurable"]["max_completion_tokens"] = request.max_completion_tokens or request.max_tokens
     hci.server.config["configurable"]["stream"] = request.stream or False
-    
+
     # Filter the messages to ensure they don't exceed the maximum number of turns and tokens.
     history = filter_completions_history(
         request.messages,
@@ -111,12 +122,12 @@ async def chat_completions(request: ChatCompletionRequest):
         max_tokens_allowed=hci.server.config["configurable"]["wrapper_chat_max_tokens"],
         remove_system_messages=True
     )
-    
+
     # Extract the last message, our new question, out from history.
     question = history.pop()["content"]
-    
+
     # Convert the messages to the format expected by langgraph.
-    history = convert_messages_to_langchain(history)
+    history = convert_from_openai_to_langchain(history)
 
     logger.debug(f"Configuration: {hci.server.config['configurable']}")
     logger.debug(f"Filtered history: {history}")
@@ -124,14 +135,18 @@ async def chat_completions(request: ChatCompletionRequest):
 
     # Run the search.
     if hci.server.config["configurable"]["stream"]:
-        logger.info(f"Running the search (streaming)")
-        
-        async def open_ai_langgraph_stream(question: str, history: list[Message]):
+        logger.info("Running the search (streaming)")
+
+        async def open_ai_langgraph_stream(question: str, history: list[BaseMessage]):
             index: int = 0
-            for message, metadata in hci.server.graph.stream({"question": question, "history": history}, config=hci.server.config, stream_mode="messages"):
-                assert isinstance(message, AIMessageChunk)
+            for message, metadata in hci.server.graph.stream(
+                    {"question": question, "history": history},
+                    config=hci.server.config,
+                    stream_mode="messages"
+            ):
                 assert isinstance(metadata, dict)
                 if metadata.get("langgraph_node") == "generate" and message.content:
+                    assert isinstance(message, AIMessageChunk)
                     chunk = {
                         "id": str(uuid.uuid4()),
                         "object": "chat.completion.chunk",
@@ -141,7 +156,7 @@ async def chat_completions(request: ChatCompletionRequest):
                             "index": index,
                             "delta": {
                                 "role": "assistant",
-                                "content": f"{message.content}"
+                                "content": message.content
                             }
                         }],
                     }
@@ -151,8 +166,12 @@ async def chat_completions(request: ChatCompletionRequest):
 
         return StreamingResponse(open_ai_langgraph_stream(question, history), media_type="text/event-stream")
     else:
-        logger.info(f"Running the search (non-streaming)")
-        completion = hci.server.graph.invoke({"question": question, "history": history}, config=hci.server.config)
+        logger.info("Running the search (non-streaming)")
+        completion = await hci.server.graph.ainvoke(
+            {"question": question, "history": history},
+            config=hci.server.config
+        )
+
         return {
             "id": uuid.uuid4(),
             "object": "chat.completion",

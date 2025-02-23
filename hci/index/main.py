@@ -1,23 +1,28 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-from datetime import datetime, timezone
-from pathlib import Path
-
-from hci import ROOT_DIR, __version__, LOG_LEVEL
-from hci.index.util import load_parsed_information, create_temp_collection_schema, index_pages, \
-    replace_previous_collection
-from hci.util import setup_logging
-
-from dotenv import load_dotenv
-import sys
-import os
+"""Main entry point for the document indexer."""
 
 import logging
+import os
+import sys
+
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+from hci import LOG_LEVEL, ROOT_DIR, __version__
+from hci.index.util import (
+    create_temp_collection_schema,
+    index_pages,
+    load_parsed_information,
+    replace_previous_collection,
+)
+from hci.util import setup_logging
+
 
 def main():
-    """ Make an index from the json information present in the specified file """
-
+    """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("hci-index starting up...")
@@ -40,12 +45,12 @@ def main():
     if not mediawiki_namespaces:
         logger.error("Mediawiki namespaces not found in environment. Exiting.")
         sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(',')
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
-    mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
+    mediawiki_namespaces = mediawiki_namespaces.split(",")
+    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
+    mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 
     loader_dump_path = os.getenv("LOADER_DUMP_PATH")
-    if  loader_dump_path:
+    if loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
     else:
         loader_dump_path = ROOT_DIR / "data"
@@ -58,8 +63,6 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
-    # File name is the collection name + toady's date and time (hours and minutes) + .json
-    dump_filename = loader_dump_path / f"{collection_name}-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"
 
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
@@ -98,19 +101,20 @@ def main():
     logger.info(f"Loaded {len(pages)} pages from json file")
 
     temp_collection_name = f"{collection_name}_temp"
-    logger.info(f"Preparing new temp collection \"{temp_collection_name}\" schema")
+    logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
     create_temp_collection_schema(temp_collection_name, embedding_dimensions)
-    logger.info(f"Collection \"{temp_collection_name}\" created.")
+    logger.info(f'Collection "{temp_collection_name}" created.')
 
-    logger.info(f"Indexing pages into temp collection \"{temp_collection_name}\"")
-    [ total_pages, total_sections ] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
+    logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
+    [total_pages, total_sections] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
     logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
 
-    logger.info(f"Replacing previous collection \"{collection_name}\" with new collection \"{temp_collection_name}\"")
+    logger.info(f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"')
     replace_previous_collection(collection_name, temp_collection_name)
     logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
 
-    logger.info(f"hci-index finished.")
+    logger.info("hci-index finished.")
+
 
 if __name__ == "__main__":
     main()

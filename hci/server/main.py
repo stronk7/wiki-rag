@@ -1,27 +1,28 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-import urllib.parse
-from datetime import datetime, timezone
-from pathlib import Path
-
-import hci.server
-from hci import ROOT_DIR, __version__, LOG_LEVEL
-from hci.util import setup_logging
-from hci.search.util import build_graph
-
-from hci.server.server import app
-
-from dotenv import load_dotenv
-import sys
-import os
-import uvicorn
+"""Main entry point for the knowledge base OpenAI compatible server."""
 
 import logging
+import os
+import sys
+
+from pathlib import Path
+
+import uvicorn
+
+from dotenv import load_dotenv
+
+import hci.server
+
+from hci import LOG_LEVEL, ROOT_DIR, __version__
+from hci.search.util import build_graph
+from hci.server.server import app
+from hci.util import setup_logging
+
 
 def main():
-    """ Make an index from the json information present in the specified file """
-
+    """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("hci-server starting up...")
@@ -44,12 +45,12 @@ def main():
     if not mediawiki_namespaces:
         logger.error("Mediawiki namespaces not found in environment. Exiting.")
         sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(',')
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
-    mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
+    mediawiki_namespaces = mediawiki_namespaces.split(",")
+    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
+    mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 
     loader_dump_path = os.getenv("LOADER_DUMP_PATH")
-    if  loader_dump_path:
+    if loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
     else:
         loader_dump_path = ROOT_DIR / "data"
@@ -62,13 +63,11 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
-    # File name is the collection name + toady's date and time (hours and minutes) + .json
-    dump_filename = loader_dump_path / f"{collection_name}-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"
 
     # If tracing is enabled, put a name for the project.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
         os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
-        
+
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
         logger.info("User agent not found in environment. Using default.")
@@ -85,17 +84,17 @@ def main():
         logger.error("Embedding dimensions not found in environment. Exiting.")
         sys.exit(1)
     embedding_dimensions = int(embedding_dimensions)
-        
+
     llm_model = os.getenv("LLM_MODEL")
     if not llm_model:
         logger.error("LLM model not found in environment. Exiting.")
         sys.exit(1)
-        
+
     wrapper_api_key = os.getenv("WRAPPER_API_KEY")
     if not wrapper_api_key:
         logger.error("Wrapper API key not found in environment. Exiting.")
         sys.exit(1)
-        
+
     wrapper_api_base = os.getenv("WRAPPER_API_BASE")
     if not wrapper_api_base:
         logger.error("Wrapper API base not found in environment. Exiting.")
@@ -106,12 +105,12 @@ def main():
         wrapper_port = int(parts[1])
     else:
         wrapper_port = 8000
-        
+
     # These are optional, default to 0 (unlimited).
     wrapper_chat_max_turns = int(os.getenv("WRAPPER_CHAT_MAX_TURNS", 0))
     wrapper_chat_max_tokens = int(os.getenv("WRAPPER_CHAT_MAX_TOKENS", 0))
-        
-    logger.info(f"Building the graph")
+
+    logger.info("Building the graph")
     hci.server.graph = build_graph()
 
     hci.server.config = {
@@ -130,7 +129,7 @@ def main():
             "wrapper_chat_max_tokens": wrapper_chat_max_tokens,
         }
     }
-    
+
     # Start the web server
     uvicorn.run(
         app,
@@ -138,7 +137,8 @@ def main():
         port=wrapper_port,
     )
 
-    logger.info(f"hci-server finished.")
+    logger.info("hci-server finished.")
+
 
 if __name__ == "__main__":
     main()

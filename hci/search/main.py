@@ -1,25 +1,25 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-from datetime import datetime, timezone
-from pathlib import Path
-
-from hci import ROOT_DIR, __version__, LOG_LEVEL
-from hci.util import setup_logging
-from hci.search.util import build_graph
-
-from langchain_core.messages import AIMessageChunk
+"""Main entry point for the KB retriever and search system."""
 
 import argparse
-from dotenv import load_dotenv
-import sys
-import os
-
 import logging
+import os
+import sys
+
+from pathlib import Path
+
+from dotenv import load_dotenv
+from langchain_core.messages import AIMessageChunk
+
+from hci import LOG_LEVEL, ROOT_DIR, __version__
+from hci.search.util import build_graph
+from hci.util import setup_logging
+
 
 def main():
-    """ Make an index from the json information present in the specified file """
-
+    """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("hci-search starting up...")
@@ -42,12 +42,12 @@ def main():
     if not mediawiki_namespaces:
         logger.error("Mediawiki namespaces not found in environment. Exiting.")
         sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(',')
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces] # no whitespace and int.
-    mediawiki_namespaces = list(set(mediawiki_namespaces)) # unique
+    mediawiki_namespaces = mediawiki_namespaces.split(",")
+    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
+    mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 
     loader_dump_path = os.getenv("LOADER_DUMP_PATH")
-    if  loader_dump_path:
+    if loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
     else:
         loader_dump_path = ROOT_DIR / "data"
@@ -60,8 +60,6 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
-    # File name is the collection name + toady's date and time (hours and minutes) + .json
-    dump_filename = loader_dump_path / f"{collection_name}-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H-%M')}.json"
 
     # If tracing is enabled, put a name for the project.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
@@ -99,9 +97,9 @@ def main():
     question = " ".join(args.question)
 
     stream = args.stream if args.stream else False
-    logger.info(f"Question: \"{question}\"")
+    logger.info(f'Question: "{question}"')
 
-    logger.info(f"Building the graph")
+    logger.info("Building the graph")
     graph = build_graph()
 
     # Prepare the configuration.
@@ -109,7 +107,7 @@ def main():
         "configurable": {
             "prompt_name": "mediawiki-rag",
             "collection_name": collection_name,
-            "embedding_model":embedding_model,
+            "embedding_model": embedding_model,
             "embedding_dimension": embedding_dimensions,
             "llm_model": llm_model,
             "search_distance_cutoff": 0.6,
@@ -124,19 +122,21 @@ def main():
 
     # And, finally, run a search.
     if not stream:
-        logger.info(f"Running the search (non-streaming)")
+        logger.info("Running the search (non-streaming)")
         run = graph.invoke({"question": question, "history": []}, config=config)
         print(f"\033[93m{run["answer"]}\033[0m", end="")
     else:
-        logger.info(f"Running the search (streaming)")
-        for message, metadata in graph.stream({"question": question, "history": []}, config=config, stream_mode="messages"):
-            assert isinstance(message, AIMessageChunk)
+        logger.info(f"Running the search (streaming)")  # noqa: F541
+        for message, metadata in graph.stream(
+                {"question": question, "history": []}, config=config, stream_mode="messages"):
             assert isinstance(metadata, dict)
             if metadata.get("langgraph_node") == "generate" and message.content:
+                assert isinstance(message, AIMessageChunk)
                 print(f"\033[93m{message.content}\033[0m", end="", flush=True)
     print("", end="\n\n")
 
-    logger.info(f"hci-search finished.")
+    logger.info("hci-search finished.")
+
 
 if __name__ == "__main__":
     main()

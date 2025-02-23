@@ -1,29 +1,32 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-""" Util functions to use langgraph to conduct simple searches against the indexed database."""
+"""Util functions to use langgraph to conduct simple searches against the indexed database."""
 
 import logging
+
 from typing import TypedDict
 
-from hci.server.util import Message
-
 from langchain import hub
-from langchain_core.prompts import ChatPromptTemplate, SystemMessagePromptTemplate, HumanMessagePromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnableConfig
 from langchain_core.messages import BaseMessage
+from langchain_core.prompts import (
+    ChatPromptTemplate,
+    HumanMessagePromptTemplate,
+    MessagesPlaceholder,
+    SystemMessagePromptTemplate,
+)
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-
-from langgraph.graph.state import StateGraph, CompiledStateGraph, START
-
-from pymilvus import MilvusClient, WeightedRanker, AnnSearchRequest
+from langgraph.graph.state import START, CompiledStateGraph, StateGraph
+from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
 logger = logging.getLogger(__name__)
 
 
-# Define the configuration that the graph will use.
 # TODO: Check how this is used/validated and how to better integrate in the OpenAI API (FastAPI).
 class Config(TypedDict):
+    """Define the configuration that the graph will use."""
+
     prompt_name: str
     collection_name: str
     embedding_model: str
@@ -35,47 +38,50 @@ class Config(TypedDict):
     temperature: float
     stream: bool
 
-# Define the overall state for the graph
-class OverallState(TypedDict):
+
+class RagState(TypedDict):
+    """Overall state to follow the RAG graph execution."""
+
     history: list[BaseMessage]
     question: str
+    vector_search: list[dict]
     context: list[dict]
     answer: str | None
 
 
-# To track intermediate information during the graph execution
-class InternalState(OverallState, TypedDict):
-    vector_search: list[dict]
-
 def build_graph() -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
-
-    graph_builder = StateGraph(OverallState, Config).add_sequence([prepare, retrieve, optimise, generate])
-    graph_builder.add_edge(START, "prepare")
+    graph_builder = StateGraph(RagState, Config).add_sequence([
+        retrieve,
+        optimise,
+        generate
+    ])
+    graph_builder.add_edge(START, "retrieve")
     graph = graph_builder.compile()
     return graph
 
-def load_prompts_for_rag(prompt_name: str, messages_history: list[BaseMessage]) -> ChatPromptTemplate:
-    """ Load the prompts for the RAG model."""
 
+def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
+    """Load the prompts for the RAG model."""
     # Try to load the prompt from langsmith, falling back to hardcoded one.
     # Note this (to pull the prompt) requires langsmith to be available and configured with:
     # LANGSMITH_ENDPOINT = "https://xxx.api.smith.langchain.com"
     # LANGSMITH_API_KEY = "<your langsmith api key>"
     # Optionally, automatic tracing can be enabled with:
     # LANGSMITH_TRACING = True
+    # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     chat_prompt = ChatPromptTemplate([])
     logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
-        prompt_name="mediawiki-rag"
+        prompt_name = "mediawiki-rag"
         chat_prompt = hub.pull(prompt_name)
     except Exception as e:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}")
         # Use the manual prompt building instead.
         system_prompt = SystemMessagePromptTemplate.from_template(
             "You are an assistant for question-answering tasks related to Moodle user documentation."
-            "The sources for you knowledge are the \"Moodle Docs\", available at https://docs.moodle.org"
-            "Avoid the term \"context\" in the answer."
+            'The sources for you knowledge are the "Moodle Docs", available at https://docs.moodle.org'
+            'Avoid the term "context" in the answer.'
             "Avoid repeating the question in the answer."
             "Try to answer with a few phrases in a concise and clear way."
             "If the user asks for more details or explanations the answer can be longer."
@@ -95,18 +101,14 @@ def load_prompts_for_rag(prompt_name: str, messages_history: list[BaseMessage]) 
     finally:
         return chat_prompt
 
-def prepare(state: OverallState) -> dict:
-    """Given the overall state, prepare the internal state for the graph."""
-    return InternalState()
 
-def retrieve(state: InternalState, config: RunnableConfig) -> dict:
+def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     """Retrieve the best matches from the indexed database.
 
     Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
     and a BM25 search (sparse, full text). And then will rerank results with the weighted
     reranker.
     """
-
     # Note that here we are using the Milvus own library instead of the LangChain one because
     # the LangChain one doesn't support many of the features used here.
 
@@ -167,17 +169,26 @@ def retrieve(state: InternalState, config: RunnableConfig) -> dict:
     )
     milvus.close()
 
-    # Return only the docs which distance is below the cutoff.
-    #distance_cutoff = config["configurable"].get("search_distance_cutoff")
-    #return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
-    return {"vector_search": retrieved_docs[0]}
+    # TODO: Return only the docs which distance is below the cutoff.
+    # distance_cutoff = config["configurable"].get("search_distance_cutoff")
+    # return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
+    state["vector_search"] = retrieved_docs[0]
+    return state
 
-def optimise(state: InternalState, config: RunnableConfig) -> dict:
-    # Only if there are vector search results.
-    if not state["vector_search"]:
-        return {"context": []}
 
-    top = 5 # TODO: Make this part of the state.
+def optimise(state: RagState, config: RunnableConfig) -> RagState:
+    """Optimise the retrieved documents to build the context for the answer.
+
+    First, we'll weight the elements retrieved by "popularity" (how many times they are mentioned
+    by other elements in the retrieved docs). Then, we'll build the context by using the Parent, Own
+    and Children elements (POC strategy).
+    """
+    # TODO: Play with alternative strategies, we also have prev/nex, related, ...
+    if not state["vector_search"]:  # No results, no context.
+        state["context"] = []
+        return state
+
+    top = 5  # TODO: Make this part of the state.
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
     # making a dictionary with the counts. They will be weighted differently, following this order:
     # id (weight 10) > parent (weight 5) > children (weight 2) > previous (weight 1) > next (weight 1)
@@ -219,12 +230,15 @@ def optimise(state: InternalState, config: RunnableConfig) -> dict:
         collection_name=config["configurable"].get("collection_name"),
         top=top
     )
-    return {"context": new_context}
+    state["context"] = new_context
+    return state
+
 
 def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5, ):
-    """ Given the originally retrieved docs and the sorted (weighted items, build the rag final context.
+    """Given the originally retrieved docs and the sorted, weighted items, build the rag final context.
 
-    POC: Build the new context by using Parent, Own and Children elements."""
+    POC: Build the new context by using Parent, Own and Children elements.
+    """
     context_list = []
     not_retrieved = []
     current = 0
@@ -263,9 +277,9 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5,
 
     return retrieve_all_elements(retrieved_docs, context_list, collection_name)
 
-def retrieve_all_elements(retrieved_docs, context_list, collection_name: str):
-    """ Given the already built content_List, let's retrieve all the texts for the elements in the list."""
 
+def retrieve_all_elements(retrieved_docs, context_list, collection_name: str):
+    """Given the already built content_List, let's retrieve all the texts for the elements in the list."""
     context_texts = {}
     context_missing = []
     for id in context_list:
@@ -287,10 +301,10 @@ def retrieve_all_elements(retrieved_docs, context_list, collection_name: str):
     # Now, iterate over the dictionary and return the list of texts.
     return [context_texts[id] for id in context_list]
 
-def get_missing_from_vector_store(context_missing: list, collection_name: str) -> dict:
-    """ Given the missing elements, let's retrieve them from the vector store."""
 
-    if not context_missing:
+def get_missing_from_vector_store(context_missing: list, collection_name: str) -> dict:
+    """Given the missing elements, let's retrieve them from the vector store."""
+    if not context_missing:  # No missing elements, nothing extra to retrieve.
         return {}
 
     milvus = MilvusClient("http://localhost:19530")
@@ -305,9 +319,12 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     return missing_docs
 
 
-def generate(state: InternalState, config: RunnableConfig) -> OverallState:
-    """Generate the answer from the retrieved documents."""
+def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
+    """Generate the final answer for the question.
 
+    This is the final generation step where the prompt, the chat history and the context
+    are used to generate the final answer.
+    """
     llm = ChatOpenAI(
         model=config["configurable"].get("llm_model"),
         max_tokens=config["configurable"].get("max_completion_tokens"),
@@ -317,10 +334,12 @@ def generate(state: InternalState, config: RunnableConfig) -> OverallState:
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
 
-    chat_prompt = load_prompts_for_rag(
-        config["configurable"].get("prompt_name"),
-        state["history"])
-    chat = chat_prompt.invoke({"context": docs_content, "question": state["question"], "history": state["history"]})
+    chat_prompt = load_prompts_for_rag(config["configurable"].get("prompt_name"))
+    chat = chat_prompt.invoke({
+        "context": docs_content,
+        "question": state["question"],
+        "history": state["history"]
+    })
 
     response = llm.invoke(chat, config)
 

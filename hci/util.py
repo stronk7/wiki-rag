@@ -8,6 +8,7 @@ import time
 
 import colorlog
 
+
 def setup_logging(level: str = "INFO") -> logging.Logger:
     """Set up the logging configuration.
 
