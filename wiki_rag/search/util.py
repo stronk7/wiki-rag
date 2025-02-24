@@ -49,7 +49,8 @@ class RagState(TypedDict):
     history: list[BaseMessage]
     question: str
     vector_search: list[dict]
-    context: list[dict]
+    context: list[str]
+    sources: list[str]
     answer: str | None
 
 
@@ -91,10 +92,11 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
             "If the user asks for more details or explanations the answer can be longer."
             "If you don't know the answer, just say that you don't know. Never invent an answer."
             "Use the provided context to answer the question only if the context is relevant."
+            'Use the provided sources to present a list of 2 or 3 links under a "References" section at the end.'
             "The provided context is in mediawiki format, try to convert that to markdown in the answer."
         )
         user_message = HumanMessagePromptTemplate.from_template(
-            "Question: {question} \n\nContext: {context}\n\nAnswer:"
+            "Question: {question}\n\nContext: {context}\n\nSources: {sources}\n\nAnswer:"
         )
         messages = (
             system_prompt,
@@ -190,6 +192,7 @@ def optimise(state: RagState, config: RunnableConfig) -> RagState:
     # TODO: Play with alternative strategies, we also have prev/nex, related, ...
     if not state["vector_search"]:  # No results, no context.
         state["context"] = []
+        state["sources"] = []
         return state
 
     assert ("configurable" in config)
@@ -229,22 +232,25 @@ def optimise(state: RagState, config: RunnableConfig) -> RagState:
     sorted_items = sorted(element_counts.items(), key=lambda item: item[1], reverse=True)
     # Build the POC (parent, own, children) context
     # TODO: Add other variations, including prev/next, related, etc.
-    new_context = build_poc_context(
+    new_context, new_sources = build_poc_context(
         retrieved_docs=state["vector_search"],
         sorted_items=sorted_items,
         collection_name=config["configurable"]["collection_name"],
         top=top
     )
+
     state["context"] = new_context
+    state["sources"] = new_sources
     return state
 
 
-def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5, ):
+def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5) -> list[list[str]]:
     """Given the originally retrieved docs and the sorted, weighted items, build the rag final context.
 
     POC: Build the new context by using Parent, Own and Children elements.
     """
     context_list = []
+    sources_list = []
     not_retrieved = []
     current = 0
     while current < top:
@@ -260,6 +266,7 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5,
             # Now, add the element itself to the context list (if not added already).
             if element["entity"]["id"] not in context_list:
                 context_list.append(element["entity"]["id"])
+                sources_list.append(element["entity"]["source"])
             # If the element has children, let's find them and add them to the context list (if not added already).
             if element["entity"]["children"]:
                 for child in element["entity"]["children"]:
@@ -280,10 +287,13 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5,
         if not_retrieved_id not in context_list:
             context_list.append(not_retrieved_id)
 
-    return retrieve_all_elements(retrieved_docs, context_list, collection_name)
+    return [
+        retrieve_all_elements(retrieved_docs, context_list, collection_name),
+        sources_list
+    ]
 
 
-def retrieve_all_elements(retrieved_docs, context_list, collection_name: str):
+def retrieve_all_elements(retrieved_docs, context_list, collection_name: str) -> list[str]:
     """Given the already built content_List, let's retrieve all the texts for the elements in the list."""
     context_texts = {}
     context_missing = []
@@ -343,6 +353,7 @@ def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     chat_prompt = load_prompts_for_rag(config["configurable"]["prompt_name"])
     chat = chat_prompt.invoke({
         "context": docs_content,
+        "sources": state["sources"],
         "question": state["question"],
         "history": state["history"]
     })
