@@ -10,6 +10,8 @@ import re
 import time
 import uuid
 
+from pathlib import Path
+
 import requests
 
 from tqdm import tqdm
@@ -320,14 +322,14 @@ def convert_internal_links(pages: list[dict]):
                     section["relations"].append(target[0]["id"])
 
 
-def save_parsed_pages(parsed_pages: list[dict], output_file: str) -> None:
+def save_parsed_pages(parsed_pages: list[dict], output_file: Path) -> None:
     """Save the whole parsed information to a JSON file for later processing."""
     class CustomEncoder(json.JSONEncoder):
-        def default(self, obj):
-            if isinstance(obj, uuid.UUID):
-                return str(obj)
+        def default(self, o):
+            if isinstance(o, uuid.UUID):
+                return str(o)
             # Let the base class default method raise the TypeError
-            return json.JSONEncoder.default(self, obj)
+            return json.JSONEncoder.default(self, o)
 
     with open(output_file, "w") as f:
-        json.dump(parsed_pages, f, cls=CustomEncoder)
+        json.dump(parsed_pages, f, cls=CustomEncoder)  # Ignore, PyCharm bug, PY-73050. Works ok.

@@ -12,11 +12,12 @@ from pathlib import Path
 import uvicorn
 
 from dotenv import load_dotenv
+from langchain_core.runnables import RunnableConfig
 
 import hci.server
 
 from hci import LOG_LEVEL, ROOT_DIR, __version__
-from hci.search.util import build_graph
+from hci.search.util import ConfigSchema, build_graph
 from hci.server.server import app
 from hci.util import setup_logging
 
@@ -113,22 +114,23 @@ def main():
     logger.info("Building the graph")
     hci.server.graph = build_graph()
 
-    hci.server.config = {
-        "configurable": {
-            "prompt_name": "mediawiki-rag",
-            "collection_name": collection_name,
-            "embedding_model": embedding_model,
-            "embedding_dimension": embedding_dimensions,
-            "llm_model": llm_model,
-            "search_distance_cutoff": 0.6,
-            "max_completion_tokens": None,
-            "temperature": None,
-            "top_p": None,
-            "stream": None,
-            "wrapper_chat_max_turns": wrapper_chat_max_turns,
-            "wrapper_chat_max_tokens": wrapper_chat_max_tokens,
-        }
-    }
+    config_schema = ConfigSchema(
+        prompt_name="mediawiki-rag",
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+        embedding_dimension=embedding_dimensions,
+        llm_model=llm_model,
+        search_distance_cutoff=0.6,
+        max_completion_tokens=768,
+        temperature=0.1,
+        top_p=0.95,
+        stream=False,
+        wrapper_chat_max_turns=wrapper_chat_max_turns,
+        wrapper_chat_max_tokens=wrapper_chat_max_tokens,
+    ).items()
+
+    # Prepare the configuration.
+    hci.server.config = RunnableConfig(configurable=dict(config_schema))
 
     # Start the web server
     uvicorn.run(

@@ -2,11 +2,11 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 
 """hci.server package."""
-
+from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
 # The graph that will be executed for the server chat completion requests.
 graph: CompiledStateGraph
 
 # The configuration for the graph.
-config: dict
+config: RunnableConfig

@@ -23,9 +23,11 @@ from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 logger = logging.getLogger(__name__)
 
 
-# TODO: Check how this is used/validated and how to better integrate in the OpenAI API (FastAPI).
-class Config(TypedDict):
-    """Define the configuration that the graph will use."""
+class ConfigSchema(TypedDict):
+    """Define the configuration that the graph will use.
+
+    Used to validate the configuration passed to the RunnableConfig of the graph.
+    """
 
     prompt_name: str
     collection_name: str
@@ -37,6 +39,8 @@ class Config(TypedDict):
     top_p: float
     temperature: float
     stream: bool
+    wrapper_chat_max_turns: int
+    wrapper_chat_max_tokens: int
 
 
 class RagState(TypedDict):
@@ -51,7 +55,7 @@ class RagState(TypedDict):
 
 def build_graph() -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
-    graph_builder = StateGraph(RagState, Config).add_sequence([
+    graph_builder = StateGraph(RagState, ConfigSchema).add_sequence([
         retrieve,
         optimise,
         generate
@@ -111,10 +115,10 @@ def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     """
     # Note that here we are using the Milvus own library instead of the LangChain one because
     # the LangChain one doesn't support many of the features used here.
-
+    assert ("configurable" in config)
     embeddings = OpenAIEmbeddings(
-        model=config["configurable"].get("embedding_model"),
-        dimensions=config["configurable"].get("embedding_dimension")
+        model=config["configurable"]["embedding_model"],
+        dimensions=config["configurable"]["embedding_dimension"]
     )
     query_embedding = embeddings.embed_query(state["question"])
 
@@ -149,7 +153,7 @@ def retrieve(state: RagState, config: RunnableConfig) -> RagState:
 
     # Perform the hybrid search.
     retrieved_docs = milvus.hybrid_search(
-        config["configurable"].get("collection_name"),
+        config["configurable"]["collection_name"],
         [dense_search, sparse_search],
         WeightedRanker(*rerank_weights),
         limit=hybrid_rerank_limit,
@@ -170,7 +174,7 @@ def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     milvus.close()
 
     # TODO: Return only the docs which distance is below the cutoff.
-    # distance_cutoff = config["configurable"].get("search_distance_cutoff")
+    # distance_cutoff = config["configurable"]["search_distance_cutoff"]
     # return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
     state["vector_search"] = retrieved_docs[0]
     return state
@@ -188,6 +192,7 @@ def optimise(state: RagState, config: RunnableConfig) -> RagState:
         state["context"] = []
         return state
 
+    assert ("configurable" in config)
     top = 5  # TODO: Make this part of the state.
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
     # making a dictionary with the counts. They will be weighted differently, following this order:
@@ -227,7 +232,7 @@ def optimise(state: RagState, config: RunnableConfig) -> RagState:
     new_context = build_poc_context(
         retrieved_docs=state["vector_search"],
         sorted_items=sorted_items,
-        collection_name=config["configurable"].get("collection_name"),
+        collection_name=config["configurable"]["collection_name"],
         top=top
     )
     state["context"] = new_context
@@ -325,16 +330,17 @@ def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     This is the final generation step where the prompt, the chat history and the context
     are used to generate the final answer.
     """
+    assert ("configurable" in config)
     llm = ChatOpenAI(
-        model=config["configurable"].get("llm_model"),
-        max_tokens=config["configurable"].get("max_completion_tokens"),
-        top_p=config["configurable"].get("top_p"),
-        temperature=config["configurable"].get("temperature"),
+        model=config["configurable"]["llm_model"],
+        max_completion_tokens=config["configurable"]["max_completion_tokens"],
+        top_p=config["configurable"]["top_p"],
+        temperature=config["configurable"]["temperature"],
     )
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
 
-    chat_prompt = load_prompts_for_rag(config["configurable"].get("prompt_name"))
+    chat_prompt = load_prompts_for_rag(config["configurable"]["prompt_name"])
     chat = chat_prompt.invoke({
         "context": docs_content,
         "question": state["question"],

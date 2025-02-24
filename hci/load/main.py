@@ -41,10 +41,11 @@ def main():
         logger.error("Mediawiki URL not found in environment. Exiting.")
         sys.exit(1)
 
-    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES").split(",")
+    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES")
     if not mediawiki_namespaces:
         logger.error("Mediawiki namespaces not found in environment. Exiting.")
         sys.exit(1)
+    mediawiki_namespaces = mediawiki_namespaces.split(",")
     mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 

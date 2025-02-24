@@ -12,9 +12,10 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
+from langchain_core.runnables import RunnableConfig
 
 from hci import LOG_LEVEL, ROOT_DIR, __version__
-from hci.search.util import build_graph
+from hci.search.util import ConfigSchema, build_graph
 from hci.util import setup_logging
 
 
@@ -102,21 +103,23 @@ def main():
     logger.info("Building the graph")
     graph = build_graph()
 
+    config_schema = ConfigSchema(
+        prompt_name="mediawiki-rag",
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+        embedding_dimension=embedding_dimensions,
+        llm_model=llm_model,
+        search_distance_cutoff=0.6,
+        max_completion_tokens=768,
+        temperature=0.1,
+        top_p=0.95,
+        stream=stream,
+        wrapper_chat_max_turns=0,
+        wrapper_chat_max_tokens=0,
+    ).items()
+
     # Prepare the configuration.
-    config = {
-        "configurable": {
-            "prompt_name": "mediawiki-rag",
-            "collection_name": collection_name,
-            "embedding_model": embedding_model,
-            "embedding_dimension": embedding_dimensions,
-            "llm_model": llm_model,
-            "search_distance_cutoff": 0.6,
-            "max_completion_tokens": None,
-            "temperature": 0.1,
-            "top_p": .95,
-            "stream": stream,
-        }
-    }
+    config = RunnableConfig(configurable=dict(config_schema))
 
     # display(Image((graph.get_graph().draw_mermaid_png())))
 
@@ -129,9 +132,12 @@ def main():
         logger.info(f"Running the search (streaming)")  # noqa: F541
         for message, metadata in graph.stream(
                 {"question": question, "history": []}, config=config, stream_mode="messages"):
-            assert isinstance(metadata, dict)
-            if metadata.get("langgraph_node") == "generate" and message.content:
-                assert isinstance(message, AIMessageChunk)
+            if (
+                    isinstance(message, AIMessageChunk) and
+                    isinstance(metadata, dict) and
+                    metadata.get("langgraph_node", "") == "generate" and
+                    message.content
+            ):
                 print(f"\033[93m{message.content}\033[0m", end="", flush=True)
     print("", end="\n\n")
 

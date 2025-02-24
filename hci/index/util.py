@@ -83,7 +83,12 @@ def create_temp_collection_schema(collection_name: str, embedding_dimension: int
     milvus.close()
 
 
-def index_pages(pages: list[dict], collection_name: str, embedding_model: str, embedding_dimension: int) -> [int, int]:
+def index_pages(
+        pages: list[dict],
+        collection_name: str,
+        embedding_model: str,
+        embedding_dimension: int
+) -> list[int]:
     """Index the pages to the collection."""
     milvus = MilvusClient("http://localhost:19530")
 

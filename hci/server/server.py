@@ -26,26 +26,13 @@ from hci.server.util import (
 
 logger = logging.getLogger(__name__)
 
-model_config = {
-    "temperature": 0.1,
-    "top_p": 0.95,
-    "top_k": 64,
-    "max_output_tokens": 2048,
-}
-
-app_description = """
-This is an **OpenAI-compatible [API](https://platform.openai.com/docs/api-reference/introduction)**
-that provides a chat completion endpoint.
-
-It enables easy-to-execute callbacks to be able to run, virtually, any (Python) stuff.
+app_description = """Enables easy-to-execute completion callbacks to be able to run, virtually, any (Python) stuff.
 
 Only a few endpoints are implemented, but they should be enough to integrate it with
 any OpenAI-compatible [client](https://platform.openai.com/docs/libraries).
 
 It supports authentication, streaming completions, chat history, and more.
 """
-
-model = "moodledocs405"  # This is the only model supported by this API.
 
 tags_metadata = [
     {
@@ -79,6 +66,7 @@ app = FastAPI(
 @app.get("/v1/models", tags=["models"])
 async def models_list() -> ModelsListResponse:
     """List the models available in the API."""
+    assert ("configurable" in hci.server.config)
     return ModelsListResponse(
         object="list",
         data=[
@@ -104,7 +92,7 @@ async def chat_completions(request: ChatCompletionRequest):
     if not request.model:
         raise HTTPException(status_code=400, detail="No model provided.")
 
-    if request.model != model:
+    if request.model != hci.server.config["configurable"]["collection_name"]:
         raise HTTPException(status_code=400, detail="Model not supported.")
 
     logger.debug(f"Request: {request}")
@@ -139,14 +127,17 @@ async def chat_completions(request: ChatCompletionRequest):
 
         async def open_ai_langgraph_stream(question: str, history: list[BaseMessage]):
             index: int = 0
-            for message, metadata in hci.server.graph.stream(
+            async for message, metadata in hci.server.graph.astream(
                     {"question": question, "history": history},
                     config=hci.server.config,
                     stream_mode="messages"
             ):
-                assert isinstance(metadata, dict)
-                if metadata.get("langgraph_node") == "generate" and message.content:
-                    assert isinstance(message, AIMessageChunk)
+                if (
+                    isinstance(message, AIMessageChunk) and
+                    isinstance(metadata, dict) and
+                    metadata.get("langgraph_node", "") == "generate" and
+                    message.content
+                ):
                     chunk = {
                         "id": str(uuid.uuid4()),
                         "object": "chat.completion.chunk",
