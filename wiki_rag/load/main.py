@@ -12,20 +12,20 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from hci import LOG_LEVEL, ROOT_DIR, __version__
-from hci.load.util import (
+from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.load.util import (
     get_mediawiki_pages_list,
     get_mediawiki_parsed_pages,
     save_parsed_pages,
 )
-from hci.util import setup_logging
+from wiki_rag.util import setup_logging
 
 
 def main():
     """Load and parse all the files, storing the information in a file with date."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
-    logger.info("hci-load starting up...")
+    logger.info("wiki_rag-load starting up...")
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
@@ -83,7 +83,7 @@ def main():
     logger.info(f"Saving parsed pages to {dump_filename}")
     save_parsed_pages(parsed_pages, dump_filename)
 
-    logger.info(f"hci-load finished.")  # noqa: F541
+    logger.info(f"wiki_rag-load finished.")  # noqa: F541
 
 
 if __name__ == "__main__":

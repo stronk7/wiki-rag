@@ -1,7 +1,7 @@
 #  Copyright (c) 2025, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-"""Main entry point for the document indexer."""
+"""Main entry point for the knowledge base OpenAI compatible server."""
 
 import logging
 import os
@@ -9,23 +9,22 @@ import sys
 
 from pathlib import Path
 
-from dotenv import load_dotenv
+import uvicorn
 
-from hci import LOG_LEVEL, ROOT_DIR, __version__
-from hci.index.util import (
-    create_temp_collection_schema,
-    index_pages,
-    load_parsed_information,
-    replace_previous_collection,
-)
-from hci.util import setup_logging
+from dotenv import load_dotenv
+from langchain_core.runnables import RunnableConfig
+
+from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
+from wiki_rag.search.util import ConfigSchema, build_graph
+from wiki_rag.server.server import app
+from wiki_rag.util import setup_logging
 
 
 def main():
     """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
-    logger.info("hci-index starting up...")
+    logger.info("wiki_rag-server starting up...")
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
@@ -64,6 +63,10 @@ def main():
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
 
+    # If tracing is enabled, put a name for the project.
+    if os.getenv("LANGSMITH_TRACING", "false") == "true":
+        os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
+
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
         logger.info("User agent not found in environment. Using default.")
@@ -81,39 +84,60 @@ def main():
         sys.exit(1)
     embedding_dimensions = int(embedding_dimensions)
 
-    input_candidate = ""
-    # TODO: Implement CLI argument to accept the input file here.
-
-    # No candidate yet, let's find the last file in the directory (with collection_name
-    # as prefix to filter out other files).
-    for file in sorted(loader_dump_path.iterdir()):
-        if file.is_file() and file.name.startswith(collection_name) and file.name.endswith(".json"):
-            input_candidate = file
-    if not input_candidate:
-        logger.error(f"No input file found in {loader_dump_path} with collection name {collection_name}. Exiting.")
+    llm_model = os.getenv("LLM_MODEL")
+    if not llm_model:
+        logger.error("LLM model not found in environment. Exiting.")
         sys.exit(1)
 
-    # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
-    input_file = loader_dump_path / input_candidate
+    wrapper_api_key = os.getenv("WRAPPER_API_KEY")
+    if not wrapper_api_key:
+        logger.error("Wrapper API key not found in environment. Exiting.")
+        sys.exit(1)
 
-    logger.info(f"Loading parsed pages from json: {input_file}, namespaces: {mediawiki_namespaces}")
-    pages = load_parsed_information(input_file)
-    logger.info(f"Loaded {len(pages)} pages from json file")
+    wrapper_api_base = os.getenv("WRAPPER_API_BASE")
+    if not wrapper_api_base:
+        logger.error("Wrapper API base not found in environment. Exiting.")
+        sys.exit(1)
+    parts = wrapper_api_base.split(":")
+    wrapper_server = parts[0]
+    if len(parts) > 1:
+        wrapper_port = int(parts[1])
+    else:
+        wrapper_port = 8000
 
-    temp_collection_name = f"{collection_name}_temp"
-    logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
-    create_temp_collection_schema(temp_collection_name, embedding_dimensions)
-    logger.info(f'Collection "{temp_collection_name}" created.')
+    # These are optional, default to 0 (unlimited).
+    wrapper_chat_max_turns = int(os.getenv("WRAPPER_CHAT_MAX_TURNS", 0))
+    wrapper_chat_max_tokens = int(os.getenv("WRAPPER_CHAT_MAX_TOKENS", 0))
 
-    logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
-    [total_pages, total_sections] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
-    logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+    logger.info("Building the graph")
+    server.graph = build_graph()
 
-    logger.info(f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"')
-    replace_previous_collection(collection_name, temp_collection_name)
-    logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
+    config_schema = ConfigSchema(
+        prompt_name="mediawiki-rag",
+        collection_name=collection_name,
+        embedding_model=embedding_model,
+        embedding_dimension=embedding_dimensions,
+        llm_model=llm_model,
+        search_distance_cutoff=0.6,
+        max_completion_tokens=768,
+        temperature=0.1,
+        top_p=0.95,
+        stream=False,
+        wrapper_chat_max_turns=wrapper_chat_max_turns,
+        wrapper_chat_max_tokens=wrapper_chat_max_tokens,
+    ).items()
 
-    logger.info("hci-index finished.")
+    # Prepare the configuration.
+    server.config = RunnableConfig(configurable=dict(config_schema))
+
+    # Start the web server
+    uvicorn.run(
+        app,
+        host=wrapper_server,
+        port=wrapper_port,
+    )
+
+    logger.info("wiki_rag-server finished.")
 
 
 if __name__ == "__main__":

@@ -14,16 +14,16 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from langchain_core.runnables import RunnableConfig
 
-from hci import LOG_LEVEL, ROOT_DIR, __version__
-from hci.search.util import ConfigSchema, build_graph
-from hci.util import setup_logging
+from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.search.util import ConfigSchema, build_graph
+from wiki_rag.util import setup_logging
 
 
 def main():
     """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
-    logger.info("hci-search starting up...")
+    logger.info("wiki_rag-search starting up...")
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
@@ -141,7 +141,7 @@ def main():
                 print(f"\033[93m{message.content}\033[0m", end="", flush=True)
     print("", end="\n\n")
 
-    logger.info("hci-search finished.")
+    logger.info("wiki_rag-search finished.")
 
 
 if __name__ == "__main__":

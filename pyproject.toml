@@ -1,6 +1,6 @@
 [project]
-name = "hci"
-description = "A simple RAG implementation using hybrid search with context optimisations."
+name = "wiki-rag"
+description = "A simple RAG implementation using hybrid search with context optimisations against MediaWiki articles."
 keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "mediawiki", "ai", "research"]
 
 license = {text = "BSD-3-Clause"}
@@ -11,14 +11,15 @@ authors = [
 ]
 
 classifiers = [
+    "Typing :: Typed",
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
     'License :: OSI Approved :: BSD License',
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Environment :: Console",
-    "Private :: Do Not Upload",
+    "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
 dynamic = ["version"]
@@ -52,10 +53,10 @@ dev = [
 ]
 
 [project.scripts]
-hci-load = "hci.load.main:main"
-hci-index = "hci.index.main:main"
-hci-search = "hci.search.main:main"
-hci-server = "hci.server.main:main"
+wr-load = "wiki_rag.load.main:main"
+wr-index = "wiki_rag.index.main:main"
+wr-search = "wiki_rag.search.main:main"
+wr-server = "wiki_rag.server.main:main"
 
 [project.urls]
 Homepage = "https://git.in.moodle.com/research/hybrid_search_context_improv"
@@ -65,7 +66,7 @@ Repository = "https://git.in.moodle.com/research/hybrid_search_context_improv"
 [tool.coverage.run]
 branch = true
 source = [
-    "hci",
+    "wiki_rag",
 ]
 omit = [
     "tests"
@@ -73,7 +74,7 @@ omit = [
 
 [tool.pyright]
 include = [
-    "hci"
+    "wiki_rag"
 ]
 exclude = [
     "tests"
@@ -119,4 +120,4 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 
 [tool.setuptools.packages.find]
-include = ["hci"]
+include = ["wiki_rag"]
