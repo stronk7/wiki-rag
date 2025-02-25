@@ -52,7 +52,6 @@ def get_mediawiki_pages_list(
     max_chunks = (articles * len(namespaces) // chunk) + 1
 
     pages = []
-    next_page = None
     for namespace in namespaces:
         params = {
             "action": "query",
@@ -63,6 +62,7 @@ def get_mediawiki_pages_list(
             "aplimit": chunk,
             "apdir": "ascending",
         }
+        next_page = None
         current = 0
         with tqdm(total=max_chunks, desc=f"Loading namespace {namespace}") as pbar:
             while True:
@@ -177,7 +177,7 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str) -> list:
         section_title = section["line"]
         # Very basic source built, normally enough for mediawiki URLs.
         # TODO: Make this more robust, able to process other source types.
-        source_path = f"{str.replace(title, ' ', '_')}#{section_anchor}".rstrip("/#?")
+        source_path = f"{str.replace(title, ' ', '_')}#{section_anchor}".rstrip("/#")
         section_source = f"{mediawiki_url}/{source_path}"
         section_byteoffset = section["byteoffset"]
         # Now extract from section_byteoffset to text_end
@@ -195,6 +195,7 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str) -> list:
             "wiki_links": [],
             "index": section_index,
             "level": section_level,
+            "page_id": id,
             "doc_id": doc_id,
             "doc_title": title,
             "doc_hash": doc_hash,

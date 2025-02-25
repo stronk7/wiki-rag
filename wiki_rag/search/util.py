@@ -266,7 +266,12 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5)
             # Now, add the element itself to the context list (if not added already).
             if element["entity"]["id"] not in context_list:
                 context_list.append(element["entity"]["id"])
-                sources_list.append(element["entity"]["source"])
+                # Build the mediawiki link for the source.
+                link = ""
+                if element["entity"]["parent"]:
+                    link = f"{element['entity']['doc_title']}: "
+                link = f"[{element['entity']['source']}|{link}{element['entity']['title']}]"
+                sources_list.append(link)
             # If the element has children, let's find them and add them to the context list (if not added already).
             if element["entity"]["children"]:
                 for child in element["entity"]["children"]:
