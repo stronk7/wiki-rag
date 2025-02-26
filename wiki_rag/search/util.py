@@ -108,7 +108,7 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
         return chat_prompt
 
 
-def retrieve(state: RagState, config: RunnableConfig) -> RagState:
+async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     """Retrieve the best matches from the indexed database.
 
     Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
@@ -182,7 +182,7 @@ def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     return state
 
 
-def optimise(state: RagState, config: RunnableConfig) -> RagState:
+async def optimise(state: RagState, config: RunnableConfig) -> RagState:
     """Optimise the retrieved documents to build the context for the answer.
 
     First, we'll weight the elements retrieved by "popularity" (how many times they are mentioned
@@ -339,7 +339,7 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     return missing_docs
 
 
-def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
+async def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     """Generate the final answer for the question.
 
     This is the final generation step where the prompt, the chat history and the context
@@ -356,13 +356,13 @@ def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
 
     chat_prompt = load_prompts_for_rag(config["configurable"]["prompt_name"])
-    chat = chat_prompt.invoke({
+    chat = await chat_prompt.ainvoke({
         "context": docs_content,
         "sources": state["sources"],
         "question": state["question"],
         "history": state["history"]
     })
 
-    response = llm.invoke(chat, config)
+    response = await llm.ainvoke(chat, config)
 
     return {"answer": response.content}

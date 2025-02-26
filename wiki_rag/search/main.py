@@ -4,9 +4,12 @@
 """Main entry point for the KB retriever and search system."""
 
 import argparse
+import asyncio
 import logging
 import os
+import signal
 import sys
+import traceback
 
 from pathlib import Path
 
@@ -19,7 +22,7 @@ from wiki_rag.search.util import ConfigSchema, build_graph
 from wiki_rag.util import setup_logging
 
 
-def main():
+async def run():
     """Make an index from the json information present in the specified file."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
@@ -126,11 +129,11 @@ def main():
     # And, finally, run a search.
     if not stream:
         logger.info("Running the search (non-streaming)")
-        run = graph.invoke({"question": question, "history": []}, config=config)
-        print(f"\033[93m{run["answer"]}\033[0m", end="")
+        response = await graph.ainvoke({"question": question, "history": []}, config=config)
+        print(f"\033[93m{response["answer"]}\033[0m", end="")
     else:
         logger.info(f"Running the search (streaming)")  # noqa: F541
-        for message, metadata in graph.stream(
+        async for message, metadata in graph.astream(
                 {"question": question, "history": []}, config=config, stream_mode="messages"):
             if (
                     isinstance(message, AIMessageChunk) and
@@ -142,6 +145,53 @@ def main():
     print("", end="\n\n")
 
     logger.info("wiki_rag-search finished.")
+
+
+async def release(signum: int) -> None:
+    """Signal handler for SIGINT and SIGTERM. It will release resources and exit gracefully."""
+    logger = logging.getLogger(__name__)
+    logger.info(f"Received signal {signum}, releasing resources.")
+
+    # Add all the cleanup code here.
+
+    # Cancel all tasks, so we can exit.
+    for task in asyncio.all_tasks():
+        logger.debug(f"Cancelling task {task}")
+        task.cancel()
+
+    logger.info("Resources released. Exiting.")
+
+
+def add_signal_handlers(run_loop) -> None:
+    """Register async signal handlers (SIGINT/ctrl+c, SIGTERM/kill).
+
+    Do it in own async loop, so we can release stuff gracefully.
+    """
+    run_loop.add_signal_handler(
+        signal.SIGINT,
+        lambda: asyncio.create_task(release(signal.SIGINT))
+    )
+    run_loop.add_signal_handler(
+        signal.SIGTERM,
+        lambda: asyncio.create_task(release(signal.SIGTERM))
+    )
+
+
+def main():
+    """Prepare the async loop for operation and graceful shutdown, then run()."""
+    # Create the event loop, set it as current and add the signal handlers.
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    asyncio.get_event_loop_policy().set_event_loop(loop)
+    add_signal_handlers(loop)
+    exitcode = 0
+    try:
+        loop.run_until_complete(run())  # Run the main loop.
+    except Exception:
+        traceback.print_exc()
+        exitcode = 1
+    finally:
+        loop.close()
+        sys.exit(exitcode)
 
 
 if __name__ == "__main__":
