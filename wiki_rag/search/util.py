@@ -188,12 +188,14 @@ async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
             "text",
             "source",
             "doc_id",
-            "doc_hash",
             "doc_title",
+            "doc_hash",
             "parent",
             "children",
             "previous",
             "next",
+            "relations",
+            "page_id",
         ]
     )
     milvus.close()
