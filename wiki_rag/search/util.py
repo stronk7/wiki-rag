@@ -8,6 +8,7 @@ import pprint
 
 from typing import TypedDict
 
+from cachetools import TTLCache, cached
 from langchain import hub
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import (
@@ -20,6 +21,8 @@ from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.graph.state import START, CompiledStateGraph, StateGraph
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
+
+from wiki_rag import LOG_LEVEL
 
 logger = logging.getLogger(__name__)
 
@@ -70,32 +73,53 @@ def build_graph() -> CompiledStateGraph:
     return graph
 
 
+@cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
 def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
-    """Load the prompts for the RAG model."""
+    """Load the prompts for the RAG model.
+
+    This function results are cached for 10 minutes to avoid unnecessary calls to the LangSmith API.
+    """
     chat_prompt = ChatPromptTemplate([])
 
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
-    logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
+    logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
         chat_prompt = hub.pull(prompt_name)
     except Exception as e:
-        logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}")
+        logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}. Applying default one.")
         # Use the manual prompt building instead.
-        # TODO: Make this prompt configurable.
         system_prompt = SystemMessagePromptTemplate.from_template(
-            "You are an assistant for question-answering tasks related to Moodle user documentation."
-            'The sources for you knowledge are the "Moodle Docs", available at https://docs.moodle.org'
-            'Avoid the term "context" in the answer.'
-            "Avoid repeating the question in the answer."
+            "You are an assistant for question-answering tasks related to {task_def}."
+            ""
+            "The sources for you knowledge are the {kb_name}, available at {kb_url}."
+            ""
             "Try to answer with a few phrases in a concise and clear way."
             "If the user asks for more details or explanations the answer can be longer."
-            "If you don't know the answer, just say that you don't know. Never invent an answer."
-            "Use the provided context to answer the question only if the context is relevant."
-            'Use the provided sources to present a list of 2 or 3 links under a "References" section at the end.'
-            "The provided context is in mediawiki format, try to convert that to markdown in the answer."
+            ""
+            "You are provided with a  <CONTEXT> XML element, that will be used to generate the answer."
+            'Only the information present in the "Context" element will be used to generate the answer.'
+            "This is the unique knowledge that can be used."
+            ""
+            "You are provided with a <SOURCES> XML element, with a list of URLs, that will be used"
+            "to generate up to three references at the end of the answer."
+            'Only the information present in the "Sources" element will be used to generate the references.'
+            ""
+            "If the Context information doesn't lead to a good answer, don't invent anything,"
+            "just say that you don't know."
+            'Avoid the term "context" in the answer.'
+            "Avoid repeating the question in the answer."
+            ""
+            "All the information is in mediawiki format, convert it to markdown in the answer."
+            'Specially the links, convert them from the mediawiki format "[url|text]" to the markdown "[text](url)".'
         )
         user_message = HumanMessagePromptTemplate.from_template(
-            "Question: {question}\n\nContext: {context}\n\nSources: {sources}\n\nAnswer:"
+            "Question: {question}"
+            ""
+            "<CONTEXT>{context}</CONTEXT>"
+            ""
+            "<SOURCES>{sources}</SOURCES>"
+            ""
+            "Answer: "
         )
         messages = (
             system_prompt,
