@@ -4,6 +4,7 @@
 """Util functions to use langgraph to conduct simple searches against the indexed database."""
 
 import logging
+import pprint
 
 from typing import TypedDict
 
@@ -30,6 +31,9 @@ class ConfigSchema(TypedDict):
     """
 
     prompt_name: str
+    task_def: str
+    kb_name: str
+    kb_url: str
     collection_name: str
     embedding_model: str
     embedding_dimension: int
@@ -68,21 +72,16 @@ def build_graph() -> CompiledStateGraph:
 
 def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     """Load the prompts for the RAG model."""
-    # Try to load the prompt from langsmith, falling back to hardcoded one.
-    # Note this (to pull the prompt) requires langsmith to be available and configured with:
-    # LANGSMITH_ENDPOINT = "https://xxx.api.smith.langchain.com"
-    # LANGSMITH_API_KEY = "<your langsmith api key>"
-    # Optionally, automatic tracing can be enabled with:
-    # LANGSMITH_TRACING = True
-    # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     chat_prompt = ChatPromptTemplate([])
+
+    # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
-        prompt_name = "mediawiki-rag"
         chat_prompt = hub.pull(prompt_name)
     except Exception as e:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}")
         # Use the manual prompt building instead.
+        # TODO: Make this prompt configurable.
         system_prompt = SystemMessagePromptTemplate.from_template(
             "You are an assistant for question-answering tasks related to Moodle user documentation."
             'The sources for you knowledge are the "Moodle Docs", available at https://docs.moodle.org'
@@ -186,8 +185,8 @@ async def optimise(state: RagState, config: RunnableConfig) -> RagState:
     """Optimise the retrieved documents to build the context for the answer.
 
     First, we'll weight the elements retrieved by "popularity" (how many times they are mentioned
-    by other elements in the retrieved docs). Then, we'll build the context by using the Parent, Own
-    and Children elements (POC strategy).
+    by other elements in the retrieved docs). Then, we'll build the context by using some strategy,
+    like Parent, Own and Children (poc) elements.
     """
     # TODO: Play with alternative strategies, we also have prev/nex, related, ...
     if not state["vector_search"]:  # No results, no context.
@@ -196,27 +195,29 @@ async def optimise(state: RagState, config: RunnableConfig) -> RagState:
         return state
 
     assert ("configurable" in config)
-    top = 5  # TODO: Make this part of the state.
+    top = 5  # TODO: Make this part of the state, configurable.
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
     # making a dictionary with the counts. They will be weighted differently, following this order:
-    # id (weight 10) > parent (weight 5) > children (weight 2) > previous (weight 1) > next (weight 1)
-    # multiplied by their original distance.
+    # id (weight 5), children (weight 3), parent (weight 1), previous (weight 1), next (weight 1)
+    # multiplied by their original distance and with a decay by position applied.
+    # TODO: Also weight relations once we have them.
     element_counts = {}
-    for doc in state["vector_search"]:
+    for position in range(len(state["vector_search"])):
+        doc = state["vector_search"][position]
         distance = doc["distance"]
+        decay = 0.93 ** position  # Decay (exponentially) by position.
         for element in ["id", "parent", "children", "previous", "next"]:
             if element in doc["entity"]:
                 el = doc["entity"][element]
-                # Empty (None, list) elements are not counted.
+                # Empty elements are not counted.
                 if not el:
                     continue
                 # If it's a single string element, we'll count it.
                 if el and isinstance(el, str):
                     if el not in element_counts:
                         element_counts[el] = 0
-                    element_counts[el] += distance * (5 if element == "id"
-                        else 3 if element == "parent"
-                        else 2 if element == "children"
+                    element_counts[el] += distance * decay * (5 if element == "id"
+                        else 3 if element == "children"
                         else 1)
                 # Else for sure it's a list/array like (iterable) element, so we'll count each element in the list.
                 else:
@@ -224,14 +225,16 @@ async def optimise(state: RagState, config: RunnableConfig) -> RagState:
                         if isinstance(el, str):
                             if el not in element_counts:
                                 element_counts[el] = 0
-                            element_counts[el] += distance * (5 if element == "id"
-                                else 3 if element == "parent"
-                                else 2 if element == "children"
+                            element_counts[el] += distance * decay * (5 if element == "id"
+                                else 3 if element == "children"
                                 else 1)
-    # Sort them by the counts.
+
+    # Sort them by the weighted popularity results, we'll build the context following this order.
     sorted_items = sorted(element_counts.items(), key=lambda item: item[1], reverse=True)
+    logger.debug(f"Sorted items: {pprint.PrettyPrinter(2).pformat(sorted_items)}")
+
+    # TODO: Add support for other variations, including prev/next, related, etc.
     # Build the POC (parent, own, children) context
-    # TODO: Add other variations, including prev/next, related, etc.
     new_context, new_sources = build_poc_context(
         retrieved_docs=state["vector_search"],
         sorted_items=sorted_items,
@@ -354,11 +357,15 @@ async def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     )
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
+    sources_content = "\n".join(f"* {source}" for source in state["sources"])
 
     chat_prompt = load_prompts_for_rag(config["configurable"]["prompt_name"])
     chat = await chat_prompt.ainvoke({
+        "task_def": config["configurable"]["task_def"],
+        "kb_name": config["configurable"]["kb_name"],
+        "kb_url": config["configurable"]["kb_url"],
         "context": docs_content,
-        "sources": state["sources"],
+        "sources": sources_content,
         "question": state["question"],
         "history": state["history"]
     })

@@ -112,8 +112,14 @@ def main():
     logger.info("Building the graph")
     server.graph = build_graph()
 
+    # Prepare the configuration schema.
+    # TODO, make prompt name, task_def, kb_*, cutoff, max tokens, temperature, top_p
+    #  configurable. With defaults applied if not configured.
     config_schema = ConfigSchema(
-        prompt_name="mediawiki-rag",
+        prompt_name="moodlehq/wiki-rag",
+        task_def="Moodle user documentation",
+        kb_name='"Moodle Docs"',
+        kb_url=mediawiki_url,
         collection_name=collection_name,
         embedding_model=embedding_model,
         embedding_dimension=embedding_dimensions,
@@ -121,7 +127,7 @@ def main():
         search_distance_cutoff=0.6,
         max_completion_tokens=768,
         temperature=0.1,
-        top_p=0.95,
+        top_p=0.85,
         stream=False,
         wrapper_chat_max_turns=wrapper_chat_max_turns,
         wrapper_chat_max_tokens=wrapper_chat_max_tokens,

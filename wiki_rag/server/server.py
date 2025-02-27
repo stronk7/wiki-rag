@@ -96,6 +96,7 @@ async def chat_completions(request: ChatCompletionRequest):
     logger.debug(f"Request: {request}")
 
     # Update the configuration with the values coming from the request.
+    # TODO, Apply defaults applied if not configured.
     server.config["configurable"]["temperature"] = request.temperature
     server.config["configurable"]["top_p"] = request.top_p
     server.config["configurable"]["max_completion_tokens"] = request.max_completion_tokens or request.max_tokens
