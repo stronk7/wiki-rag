@@ -112,7 +112,7 @@ async def run():
     config_schema = ConfigSchema(
         prompt_name="moodlehq/wiki-rag",
         task_def="Moodle user documentation",
-        kb_name='"Moodle Docs"',
+        kb_name="Moodle Docs",
         kb_url=mediawiki_url,
         collection_name=collection_name,
         embedding_model=embedding_model,
