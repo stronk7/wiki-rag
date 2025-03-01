@@ -16,7 +16,6 @@ from langchain_core.runnables import RunnableConfig
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
 from wiki_rag.search.util import ConfigSchema, build_graph
-from wiki_rag.server.server import app
 from wiki_rag.util import setup_logging
 
 
@@ -118,7 +117,7 @@ def main():
     config_schema = ConfigSchema(
         prompt_name="moodlehq/wiki-rag",
         task_def="Moodle user documentation",
-        kb_name='"Moodle Docs"',
+        kb_name="Moodle Docs",
         kb_url=mediawiki_url,
         collection_name=collection_name,
         embedding_model=embedding_model,
@@ -135,6 +134,8 @@ def main():
 
     # Prepare the configuration.
     server.config = RunnableConfig(configurable=dict(config_schema))
+
+    from wiki_rag.server.server import app
 
     # Start the web server
     uvicorn.run(

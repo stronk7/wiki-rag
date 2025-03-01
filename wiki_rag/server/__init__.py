@@ -5,8 +5,8 @@
 from langchain_core.runnables import RunnableConfig
 from langgraph.graph.state import CompiledStateGraph
 
-# The graph that will be executed for the server chat completion requests.
-graph: CompiledStateGraph
-
 # The configuration for the graph.
-config: RunnableConfig
+config: RunnableConfig | None = None
+
+# The graph that will be executed for the server chat completion requests.
+graph: CompiledStateGraph | None = None

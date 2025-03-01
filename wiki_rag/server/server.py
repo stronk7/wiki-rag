@@ -15,6 +15,8 @@ from langchain_core.messages import AIMessageChunk, BaseMessage
 from wiki_rag import __version__, server
 from wiki_rag.server.util import (
     ChatCompletionRequest,
+    ChatCompletionResponse,
+    ChoiceResponse,
     Message,
     ModelResponse,
     ModelsListResponse,
@@ -57,14 +59,23 @@ app = FastAPI(
         "url": "https://opensource.org/license/bsd-3-clause",
     },
     openapi_tags=tags_metadata,
+    docs_url=None,  # Disable Swagger UI
+    redoc_url="/docs",  # Put the ReDoc UI at /docs
 )
 
 
-@app.get("/models", tags=["models"])
-@app.get("/v1/models", tags=["models"])
+@app.get(
+    path="/models",
+    tags=["models"],
+    deprecated=True
+)
+@app.get(
+    path="/v1/models",
+    tags=["models"]
+)
 async def models_list() -> ModelsListResponse:
     """List the models available in the API."""
-    assert ("configurable" in server.config)
+    assert server.config is not None and "configurable" in server.config
     return ModelsListResponse(
         object="list",
         data=[
@@ -72,17 +83,27 @@ async def models_list() -> ModelsListResponse:
                 id=server.config["configurable"]["collection_name"],
                 object="model",
                 created=int(time.time()),
-                owned_by="research.moodle.com"
+                owned_by=server.config["configurable"]["kb_name"],
             )
         ]
     )
 
 
-@app.post("/chat/completions", tags=["chat"])
-@app.post("/v1/chat/completions", tags=["chat"])
-async def chat_completions(request: ChatCompletionRequest):
+@app.post(
+    path="/chat/completions",
+    response_model=ChatCompletionResponse,
+    tags=["chat"],
+    deprecated=True
+)
+@app.post(
+    path="/v1/chat/completions",
+    response_model=ChatCompletionResponse,
+    tags=["chat"]
+)
+async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
     """Generate chat completions based on the given messages and model."""
-    assert ("configurable" in server.config)
+    assert server.config is not None and "configurable" in server.config
+    assert server.graph is not None
 
     if not request.messages:
         raise HTTPException(status_code=400, detail="No messages provided.")
@@ -125,6 +146,8 @@ async def chat_completions(request: ChatCompletionRequest):
         logger.info("Running the search (streaming)")
 
         async def open_ai_langgraph_stream(question: str, history: list[BaseMessage]):
+            assert server.graph is not None
+
             index: int = 0
             async for message, metadata in server.graph.astream(
                     {"question": question, "history": history},
@@ -162,10 +185,15 @@ async def chat_completions(request: ChatCompletionRequest):
             config=server.config
         )
 
-        return {
-            "id": uuid.uuid4(),
-            "object": "chat.completion",
-            "created": int(time.time()),
-            "model": request.model,
-            "choices": [{"message": Message(role="assistant", content=completion["answer"])}],
-        }
+        return ChatCompletionResponse(
+            id=uuid.uuid4(),
+            object="chat.completion",
+            created=int(time.time()),
+            model=request.model,
+            choices=[
+                ChoiceResponse(
+                    index=0,
+                    message=Message(role="assistant", content=completion["answer"]),
+                ),
+            ],
+        )

@@ -5,6 +5,7 @@
 
 import logging
 import time
+import uuid
 
 from typing import TypedDict
 
@@ -12,9 +13,14 @@ import tiktoken
 
 from langchain_community.adapters import openai
 from langchain_core.messages import BaseMessage
-from pydantic import BaseModel
+from pydantic import UUID4, BaseModel
+
+from wiki_rag import server
 
 logger = logging.getLogger(__name__)
+
+assert server.config is not None, "The configuration must be set before using this module."
+assert "configurable" in server.config, "The configuration must have a 'configurable' key."
 
 
 class Message(TypedDict):
@@ -31,18 +37,35 @@ class ChatCompletionRequest(BaseModel):
     max_completion_tokens: int | None = 768  # Max tokens to generate (not all models support this).
     temperature: float | None = 0.1  # Temperature for sampling (0.0, deterministic to 2.0, creative).
     top_p: float | None = 0.85  # Which probability (0.0 - 1.0) is used to consider the next token (0.85 default).
-    model: str
-    messages: list[Message]
+    model: str = server.config["configurable"]["collection_name"]
+    messages: list[Message] = [Message(role="user", content="Hello!")]
     stream: bool | None = False
+
+
+class ChoiceResponse(BaseModel):
+    """Choice response model. Includes the completion and the model used."""
+
+    index: int = 0
+    message: Message = Message(role="assistant", content="Hello!")
+
+
+class ChatCompletionResponse(BaseModel):
+    """Chat completion response model. Includes the completion and the model used."""
+
+    id: UUID4 = uuid.uuid4()
+    object: str = "chat.completion"
+    created: int = int(time.time())
+    model: str = server.config["configurable"]["collection_name"]
+    choices: list[ChoiceResponse] = [ChoiceResponse()]
 
 
 class ModelResponse(BaseModel):
     """Information about a LLM model."""
 
-    id: str
+    id: str = server.config["configurable"]["collection_name"]
     object: str = "model"
     created: int = int(time.time())
-    owned_by: str = "research.moodle.com"
+    owned_by: str = server.config["configurable"]["kb_name"]
 
 
 class ModelsListResponse(BaseModel):
