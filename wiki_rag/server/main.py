@@ -88,11 +88,6 @@ def main():
         logger.error("LLM model not found in environment. Exiting.")
         sys.exit(1)
 
-    wrapper_api_key = os.getenv("WRAPPER_API_KEY")
-    if not wrapper_api_key:
-        logger.error("Wrapper API key not found in environment. Exiting.")
-        sys.exit(1)
-
     wrapper_api_base = os.getenv("WRAPPER_API_BASE")
     if not wrapper_api_base:
         logger.error("Wrapper API base not found in environment. Exiting.")

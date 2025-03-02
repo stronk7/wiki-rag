@@ -8,7 +8,7 @@ import logging
 import time
 import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk, BaseMessage
 
@@ -22,6 +22,7 @@ from wiki_rag.server.util import (
     ModelsListResponse,
     convert_from_openai_to_langchain,
     filter_completions_history,
+    validate_authentication,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,17 +62,18 @@ app = FastAPI(
     openapi_tags=tags_metadata,
     docs_url=None,  # Disable Swagger UI
     redoc_url="/docs",  # Put the ReDoc UI at /docs
+    dependencies=[Depends(validate_authentication)],  # Require authentication for all endpoints
 )
 
 
 @app.get(
     path="/models",
     tags=["models"],
-    deprecated=True
+    deprecated=True,
 )
 @app.get(
     path="/v1/models",
-    tags=["models"]
+    tags=["models"],
 )
 async def models_list() -> ModelsListResponse:
     """List the models available in the API."""
@@ -93,12 +95,12 @@ async def models_list() -> ModelsListResponse:
     path="/chat/completions",
     response_model=ChatCompletionResponse,
     tags=["chat"],
-    deprecated=True
+    deprecated=True,
 )
 @app.post(
     path="/v1/chat/completions",
     response_model=ChatCompletionResponse,
-    tags=["chat"]
+    tags=["chat"],
 )
 async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
     """Generate chat completions based on the given messages and model."""

@@ -4,18 +4,23 @@
 """Util functions to serve langgraph behind an OpenAI API wrapper."""
 
 import logging
+import os
 import time
 import uuid
 
 from typing import TypedDict
 
+import requests
 import tiktoken
 
+from cachetools import TTLCache, cached
+from fastapi import Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from langchain_community.adapters import openai
 from langchain_core.messages import BaseMessage
 from pydantic import UUID4, BaseModel
 
-from wiki_rag import server
+from wiki_rag import LOG_LEVEL, server
 
 logger = logging.getLogger(__name__)
 
@@ -144,3 +149,62 @@ def convert_from_openai_to_langchain(history: list[Message]) -> list[BaseMessage
     return [
         openai.convert_dict_to_message(message) for message in history
     ]
+
+
+async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))):
+    """Validate the authentication of the request.
+
+    Requires and Authorization header with a valid token. Two possible methods to validate
+    the token are provided:
+    - local: If the token is in AUTH_TOKENS environment variable (comma separated list).
+    - remote: The token, forwarded with the same Authorization header, is validated against
+              a remote service (AUTH_URL) that returns 200 if valid.
+    """
+    # Ensure that the token is present and is a bearer token.
+    if not auth or auth.scheme.lower() != "bearer" or not auth.credentials:
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid Authorization header"
+        )
+
+    auth_token = auth.credentials
+    authorised = False
+
+    # Check if the token is in the local list (AUTH_TOKENS env variable).
+    allowed_tokens = _get_auth_tokens()
+    if allowed_tokens and auth_token in allowed_tokens:
+        authorised = True
+
+    # If not authorised yet, check the remote service (AUTH_URL env variable).
+    if not authorised:
+        authorised = _check_token_with_service(auth_token)
+
+    # Arrived here, not authorised, raise an exception.
+    if not authorised:
+        raise HTTPException(
+            status_code=403,
+            detail="Invalid authentication credentials"
+        )
+
+
+def _get_auth_tokens() -> list[str]:
+    """Get the list of valid tokens from the environment."""
+    tokens = os.getenv("AUTH_TOKENS")
+    if tokens:
+        return [token.strip() for token in tokens.split(",")]
+    return []
+
+
+@cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
+def _check_token_with_service(token: str) -> bool:
+    """Check the remote service to validate the token.
+
+    Cached for 5 minutes to avoid hitting the service too often.
+    """
+    auth_url = os.getenv("AUTH_URL")
+    if not auth_url:
+        return False
+
+    logger.info(f"Checking token with service: {auth_url}")
+    response = requests.get(auth_url, headers={"Authorization": f"Bearer {token}"})
+    return response.status_code == 200

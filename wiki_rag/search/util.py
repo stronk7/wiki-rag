@@ -77,7 +77,7 @@ def build_graph() -> CompiledStateGraph:
 def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     """Load the prompts for the RAG model.
 
-    This function results are cached for 10 minutes to avoid unnecessary calls to the LangSmith API.
+    This function results are cached for 5 minutes to avoid unnecessary calls to the LangSmith API.
     """
     chat_prompt = ChatPromptTemplate([])
 
