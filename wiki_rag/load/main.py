@@ -59,6 +59,20 @@ def main():
         logger.error(f"Data directory {loader_dump_path} not found. Please ensure it exists. Exiting.")
         sys.exit(1)
 
+    # The format for now is a semicolon separated list of "type", colon and comma
+    # separated list of values, for example:
+    # MEDIAWIKI_EXCLUDED="categories:Plugin, Contributed code;wikitext:Hi world, ho world
+    # TODO: Move this also to the config YAML file.
+    excluded = os.getenv("MEDIAWIKI_EXCLUDED")
+    exclusions = {}
+    # Let's process the exclusions and return them in a nice dict.
+    if excluded:
+        for exclusion in excluded.split(";"):
+            exclusion_type, exclusion_values = exclusion.split(":")
+            exclusion_values = [value.strip() for value in exclusion_values.split(",")]
+            exclusions[exclusion_type] = exclusion_values
+    logger.info(f"Applying exclusions: {exclusions}")
+
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
@@ -77,7 +91,7 @@ def main():
     logger.info(f"Loaded {len(pages)} pages.")
 
     logger.info("Parsing and splitting pages")
-    parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent)
+    parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent, exclusions)
     logger.info(f"Parsed {len(parsed_pages)} pages.")
 
     logger.info(f"Saving parsed pages to {dump_filename}")

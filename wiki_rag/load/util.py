@@ -86,7 +86,12 @@ def get_mediawiki_pages_list(
     return pages
 
 
-def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent: str) -> list[dict]:
+def get_mediawiki_parsed_pages(
+        mediawiki_url: str,
+        pages: list[dict],
+        user_agent: str,
+        exclusions: dict[str, list[str]]
+) -> list[dict]:
     """Parse the pages and split them into sections.
 
     :param mediawiki_url: The url of the mediawiki site.
@@ -99,7 +104,9 @@ def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent
         time.sleep(random.uniform(2, 3))  # We aren't in a hurry (it's only a few requests).
         try:
             sections, categories, internal_links, external_links, language_links = parse_page(
-                mediawiki_url, page["pageid"], user_agent)  # Parse pages and sections.
+                mediawiki_url, page["pageid"], user_agent, exclusions)  # Parse pages and sections.
+            if not sections:  # Something, maybe an exclusion, caused this page to be skipped.
+                continue
             tidy_sections_text(mediawiki_url, sections, categories, internal_links, external_links,
                                language_links)  # Tidy up contents and links.
             calculate_relationships(sections)  # Calculate all the relationships between sections.
@@ -125,7 +132,7 @@ def get_mediawiki_parsed_pages(mediawiki_url: str, pages: list[dict], user_agent
     return parsed_pages
 
 
-def parse_page(mediawiki_url: str, page_id: int, user_agent: str) -> list:
+def parse_page(mediawiki_url: str, page_id: int, user_agent: str, exclusions: dict[str, list[str]]) -> list:
     """Fetch a page using mediawiki api and process it completely."""
     api_url = f"{mediawiki_url}/api.php"
     headers = {
@@ -148,6 +155,23 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str) -> list:
     internal_links = [link["*"] for link in result.json()["parse"]["links"] if "exists" in link]
     external_links = result.json()["parse"]["externallinks"]
     language_links = [f"{lang["lang"]}:{lang["*"]}" for lang in result.json()["parse"]["langlinks"]]
+    wikitext = result.json()["parse"]["wikitext"]["*"]
+
+    # Apply exclusions.
+    for exclusion in exclusions:  # This is a dict with the type and the values to exclude.
+        logger.debug(f"Applying exclusion {exclusion} = {exclusions[exclusion]} to page {title}.")
+        if exclusion == "categories":
+            # If any of the categories is in the exclusion list, we skip the page.
+            if any(cat.replace(" ", "_") in categories for cat in exclusions[exclusion]):
+                logger.info(f"Excluding page {title} due to category exclusion.")
+                return [[], [], [], [], []]
+        elif exclusion == "wikitext":
+            # If the wikitext contains any of the exclusion regexes, we skip the page.
+            if any(re.search(f"{text}", wikitext) for text in exclusions[exclusion]):
+                logger.info(f"Excluding page {title} due to wikitext regex exclusion.")
+                return [[], [], [], [], []]
+        else:
+            logger.error(f"Unknown exclusion type {exclusion}")
 
     # Based on the URL and the page id, create a stable document identifier for the whole page.
     doc_id = uuid.uuid5(uuid.NAMESPACE_URL, f"{mediawiki_url}/{id}")
