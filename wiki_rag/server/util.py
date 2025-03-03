@@ -168,12 +168,9 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
         )
 
     auth_token = auth.credentials
-    authorised = False
 
     # Check if the token is in the local list (AUTH_TOKENS env variable).
-    allowed_tokens = _get_auth_tokens()
-    if allowed_tokens and auth_token in allowed_tokens:
-        authorised = True
+    authorised = _check_token_with_local_env(auth_token)
 
     # If not authorised yet, check the remote service (AUTH_URL env variable).
     if not authorised:
@@ -187,12 +184,16 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
         )
 
 
-def _get_auth_tokens() -> list[str]:
-    """Get the list of valid tokens from the environment."""
+@cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
+def _check_token_with_local_env(token: str) -> bool:
+    """Check the local environment variable to validate the token."""
     tokens = os.getenv("AUTH_TOKENS")
-    if tokens:
-        return [token.strip() for token in tokens.split(",")]
-    return []
+    if not tokens:
+        return False
+
+    logger.info("Checking token with local env variable: AUTH_TOKENS")
+    allowed_tokens = [token.strip() for token in tokens.split(",")]
+    return True if allowed_tokens and token in allowed_tokens else False
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
