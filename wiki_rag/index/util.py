@@ -19,6 +19,8 @@ from pymilvus import (
 )
 from tqdm import tqdm
 
+import wiki_rag.index as index
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,7 @@ def load_parsed_information(input_file: Path) -> list[dict]:
 
 def create_temp_collection_schema(collection_name: str, embedding_dimension: int) -> None:
     """Create a temporary schema for the collection."""
-    milvus = MilvusClient("http://localhost:19530")
+    milvus = MilvusClient(index.milvus_url)
     if milvus.has_collection(collection_name):
         milvus.drop_collection(collection_name)
 
@@ -91,7 +93,7 @@ def index_pages(
         embedding_dimension: int
 ) -> list[int]:
     """Index the pages to the collection."""
-    milvus = MilvusClient("http://localhost:19530")
+    milvus = MilvusClient(index.milvus_url)
 
     logging.getLogger("httpx").setLevel(logging.WARNING)
 
@@ -141,7 +143,7 @@ def index_pages(
 
 def replace_previous_collection(collection_name: str, temp_collection_name: str) -> None:
     """Replace the previous collection with the new one."""
-    milvus = MilvusClient("http://localhost:19530")
+    milvus = MilvusClient(index.milvus_url)
 
     if not milvus.has_collection(temp_collection_name):
         msg = f"Collection {temp_collection_name} does not exist."

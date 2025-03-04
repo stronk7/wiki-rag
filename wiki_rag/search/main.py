@@ -17,6 +17,8 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from langchain_core.runnables import RunnableConfig
 
+import wiki_rag.index as index
+
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
 from wiki_rag.search.util import ConfigSchema, build_graph
 from wiki_rag.util import setup_logging
@@ -63,6 +65,11 @@ async def run():
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
+        sys.exit(1)
+
+    index.milvus_url = os.getenv("MILVUS_URL")
+    if not index.milvus_url:
+        logger.error("Milvus URL not found in environment. Exiting.")
         sys.exit(1)
 
     # If tracing is enabled, put a name for the project.

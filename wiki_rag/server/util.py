@@ -207,5 +207,10 @@ def _check_token_with_service(token: str) -> bool:
         return False
 
     logger.info(f"Checking token with service: {auth_url}")
-    response = requests.get(auth_url, headers={"Authorization": f"Bearer {token}"})
-    return response.status_code == 200
+    status_code = 500
+    try:
+        status_code = requests.get(auth_url, headers={"Authorization": f"Bearer {token}"}).status_code
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Error checking token with service {auth_url}: {e}")
+    finally:
+        return status_code == 200

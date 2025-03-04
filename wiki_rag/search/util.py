@@ -4,6 +4,7 @@
 """Util functions to use langgraph to conduct simple searches against the indexed database."""
 
 import logging
+import os
 import pprint
 
 from typing import TypedDict
@@ -21,6 +22,8 @@ from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.graph.state import START, CompiledStateGraph, StateGraph
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
+
+import wiki_rag.index as index
 
 from wiki_rag import LOG_LEVEL
 
@@ -82,52 +85,66 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     chat_prompt = ChatPromptTemplate([])
 
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
-    logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
     try:
-        chat_prompt = hub.pull(prompt_name)
+        if os.getenv("LANGSMITH_TRACING", "false") == "true":
+            logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
+            chat_prompt = hub.pull(prompt_name)
+        else:
+            chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     except Exception as e:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}. Applying default one.")
-        # Use the manual prompt building instead.
-        system_prompt = SystemMessagePromptTemplate.from_template(
-            "You are an assistant for question-answering tasks related to {task_def}, "
-            "using the information present in {kb_name}, publicly available at {kb_url}."
-            ""
-            "Try to answer with a few phrases in a concise and clear way."
-            "If the user asks for more details or explanations the answer can be longer."
-            ""
-            "You are provided with a <CONTEXT> XML element, that will be used to generate the answer."
-            'Only the information present in the "Context" element will be used to generate the answer.'
-            "This is the unique knowledge that can be used."
-            ""
-            "You are provided with a <SOURCES> XML element, with a list of URLs, that will be used "
-            "to generate up to three references at the end of the answer."
-            'Only the information present in the "Sources" element will be used to generate the references.'
-            ""
-            "If the Context information doesn't lead to a good answer, don't invent anything, "
-            "just say that you don't know."
-            'Avoid the term "context" in the answer.'
-            "Avoid repeating the question in the answer."
-            ""
-            "All the information is in mediawiki format, convert it to markdown in the answer."
-            'Always convert the links from mediawiki format "[url|text]" to markdown format [text](url)".'
-        )
-        user_message = HumanMessagePromptTemplate.from_template(
-            "Question: {question}"
-            ""
-            "<CONTEXT>{context}</CONTEXT>"
-            ""
-            "<SOURCES>{sources}</SOURCES>"
-            ""
-            "Answer: "
-        )
-        messages = (
-            system_prompt,
-            MessagesPlaceholder("history", optional=True),
-            user_message,
-        )
-        chat_prompt = ChatPromptTemplate.from_messages(messages)
+        chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     finally:
         return chat_prompt
+
+
+def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
+    """Load the prompts from the local configuration."""
+    chat_prompt = ChatPromptTemplate([])
+
+    # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
+    logger.info(f"Loading the prompt {prompt_name} from local.")
+
+    # Use the manual prompt building instead.
+    system_prompt = SystemMessagePromptTemplate.from_template(
+        "You are an assistant for question-answering tasks related to {task_def}, "
+        "using the information present in {kb_name}, publicly available at {kb_url}."
+        ""
+        "Try to answer with a few phrases in a concise and clear way."
+        "If the user asks for more details or explanations the answer can be longer."
+        ""
+        "You are provided with a <CONTEXT> XML element, that will be used to generate the answer."
+        'Only the information present in the "Context" element will be used to generate the answer.'
+        "This is the unique knowledge that can be used."
+        ""
+        "You are provided with a <SOURCES> XML element, with a list of URLs, that will be used "
+        "to generate up to three references at the end of the answer."
+        'Only the information present in the "Sources" element will be used to generate the references.'
+        ""
+        "If the Context information doesn't lead to a good answer, don't invent anything, "
+        "just say that you don't know."
+        'Avoid the term "context" in the answer.'
+        "Avoid repeating the question in the answer."
+        ""
+        "The information is in mediawiki format, convert it to markdown in the answer."
+        'Convert the links from mediawiki format "[url|text]" to markdown format [text](url)".'
+    )
+    user_message = HumanMessagePromptTemplate.from_template(
+        "Question: {question}"
+        ""
+        "<CONTEXT>{context}</CONTEXT>"
+        ""
+        "<SOURCES>{sources}</SOURCES>"
+        ""
+        "Answer: "
+    )
+    messages = (
+        system_prompt,
+        MessagesPlaceholder("history", optional=True),
+        user_message,
+    )
+    chat_prompt = ChatPromptTemplate.from_messages(messages)
+    return chat_prompt
 
 
 async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
@@ -146,7 +163,7 @@ async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     )
     query_embedding = embeddings.embed_query(state["question"])
 
-    milvus = MilvusClient("http://localhost:19530")
+    milvus = MilvusClient(index.milvus_url)
 
     # TODO: Make a bunch of the defaults used here configurable.
     dense_search_limit = 15
@@ -355,7 +372,7 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     if not context_missing:  # No missing elements, nothing extra to retrieve.
         return {}
 
-    milvus = MilvusClient("http://localhost:19530")
+    milvus = MilvusClient(index.milvus_url)
 
     # Let's find in the collection, the missing elements and get their titles and texts.
     missing_docs_db = milvus.query(
