@@ -1,0 +1,6 @@
+.*
+*.sh
+Dockerfile
+data/*
+*.egg-info
+*/__pycache__
