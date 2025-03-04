@@ -1,0 +1,44 @@
+# NOTE: This is a template file. Copy this file to .env and fill in the values.
+# TODO: All this configuration will be moved to config.yml and this file will be removed then.
+
+# Any OpenAI compatible provider (OpenAI, AI Proxy, Ollama, ...)
+OPENAI_API_BASE="https://openai.com/v1"
+# OPENAI_API_KEY="<<<YOUR_OPENAI_API_KEY>>>"
+
+# Mediawiki instance base URL.
+MEDIAWIKI_URL="https://your.mediaiki/base/url
+# Comma separated list (general and others, see https://www.mediawiki.org/wiki/Manual:Namespace#Built-in_namespaces)
+MEDIAWIKI_NAMESPACES="0,4,12"
+MEDIAWIKI_EXCLUDED="categories:Category A, Category B;wikitext:Some regex to exclude"
+
+# This is both the DB collection name and the model name for the OpenAI API.
+COLLECTION_NAME="your_collection_name"
+# Defaults to PROJECT_DIR/data
+LOADER_DUMP_PATH=
+# Milvus connection URL.
+MILVUS_URL="http://0.0.0.0:19530"
+
+EMBEDDING_MODEL="your_embedding_model"
+# Specify the default real embedding dims used. Some providers don't allow to change this.
+EMBEDDING_DIMENSIONS=768
+LLM_MODEL="your_llm_model"
+
+# OpenAI wrapper base URL.
+WRAPPER_API_BASE="0.0.0.0:8000"
+ # To limit the number of OpenAI history turns allowed in a chat (0 = no limit).
+WRAPPER_CHAT_MAX_TURNS=10
+# To limit the number of OpenAI history tokens allowed in a chat (0 = no limit).
+WRAPPER_CHAT_MAX_TOKENS=1536
+
+# Validate requests auth against these bearer tokens.
+AUTH_TOKENS="11111111,22222222,33333333"
+# Delegate bearer token auth to this URL.
+AUTH_URL="http://0.0.0.0:4000/key/info"
+
+# To enable the Langsmith tracing. Optional.
+# LANGSMITH_TRACING="true"
+# LANGSMITH_ENDPOINT="https://eu.api.smith.langchain.com"
+# LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>
+
+# User agent for the crawler.
+USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiwki-rag)"

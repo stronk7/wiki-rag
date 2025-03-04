@@ -43,11 +43,11 @@ To get started with Wiki-RAG, ensure you have the following:
     ```
 
 4. **Set Environment Variables**:
-   - Using the `env_template` file as source, create a new `.env` file:
+   - Using the [env_template](env_template) file as source, create a new `.env` file:
      ```bash
      cp env_template .env
      ```
-   - Edit it to suit your needs (mediawiki site and namespaces or exclusions, models to use for embeddings and generation, etc.)
+   - Edit it to suit your needs (mediawiki site and namespaces or exclusions, models to use for both embeddings and generation, etc.)
 
 5. **Run the Application**:
    The application comes with four different executables:
