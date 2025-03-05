@@ -52,7 +52,7 @@ app = FastAPI(
     version=__version__,
     contact={
         "name": "Moodle HQ - Research",
-        "url": "https://git.in.moodle.com/research",
+        "url": "https://github.com/moodlehq/wiki-rag",
         "email": "research@moodle.com",
     },
     license_info={
