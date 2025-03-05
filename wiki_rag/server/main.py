@@ -127,7 +127,7 @@ def main():
         llm_model=llm_model,
         search_distance_cutoff=0.6,
         max_completion_tokens=768,
-        temperature=0.1,
+        temperature=0.05,
         top_p=0.85,
         stream=False,
         wrapper_chat_max_turns=wrapper_chat_max_turns,

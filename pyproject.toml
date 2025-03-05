@@ -60,9 +60,9 @@ wr-search = "wiki_rag.search.main:main"
 wr-server = "wiki_rag.server.main:main"
 
 [project.urls]
-Homepage = "https://git.in.moodle.com/research/hybrid_search_context_improv"
-Documentation = "https://git.in.moodle.com/research/hybrid_search_context_improv"
-Repository = "https://git.in.moodle.com/research/hybrid_search_context_improv"
+Homepage = "https://github.com/moodlehq/wiki-rag"
+Documentation = "https://github.com/moodlehq/wiki-rag"
+Repository = "https://github.com/moodlehq/wiki-rag"
 
 [tool.coverage.run]
 branch = true

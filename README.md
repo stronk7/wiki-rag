@@ -54,7 +54,7 @@ To get started with Wiki-RAG, ensure you have the following:
    - `wr-load`: Will parse all the configured pages in the source Mediawiki site, extracting contents and other important metadata. All the generated information will be stored into a JSON file in the `data` directory.
    - `wr-index`: In charge of creating the collection in the vector index (Milvus) with all the information extracted in the previous step.
    - `wr-search`: A tiny CLI utility to perform searches against the RAG system from the command line.
-   - `wr-server`: A complete and protected web service (OpenAPI documented) that enables users to interact with the RAG system using the OpenAI API (v1/models and v1/chat/completions endpoints) like it was a LLM.
+   - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM).
 
 ### Running with Docker
 

@@ -40,7 +40,7 @@ class ChatCompletionRequest(BaseModel):
 
     max_tokens: int | None = 768  # Max tokens to generate (not all models support this). Deprecated.
     max_completion_tokens: int | None = 768  # Max tokens to generate (not all models support this).
-    temperature: float | None = 0.1  # Temperature for sampling (0.0, deterministic to 2.0, creative).
+    temperature: float | None = 0.05  # Temperature for sampling (0.0, deterministic to 2.0, creative).
     top_p: float | None = 0.85  # Which probability (0.0 - 1.0) is used to consider the next token (0.85 default).
     model: str = server.config["configurable"]["collection_name"]
     messages: list[Message] = [Message(role="user", content="Hello!")]
