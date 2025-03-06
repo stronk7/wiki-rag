@@ -56,8 +56,12 @@ def main():
         loader_dump_path = ROOT_DIR / "data"
     # If the directory does not exist, create it.
     if not loader_dump_path.exists():
-        logger.error(f"Data directory {loader_dump_path} not found. Please ensure it exists. Exiting.")
-        sys.exit(1)
+        logger.warning(f"Data directory {loader_dump_path} not found. Creating it.")
+        try:
+            loader_dump_path.mkdir()
+        except Exception:
+            logger.error(f"Could not create data directory {loader_dump_path}. Exiting.")
+            sys.exit(1)
 
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
