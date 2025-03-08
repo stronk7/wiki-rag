@@ -1,0 +1,32 @@
+services:
+  # Include the contents of milvus-standalone.yml
+  etcd:
+    extends:
+      file: ./milvus-standalone.yml
+      service: etcd
+
+  minio:
+    extends:
+      file: ./milvus-standalone.yml
+      service: minio
+
+  standalone:
+    extends:
+      file: ./milvus-standalone.yml
+      service: standalone
+
+  # Define the wiki-rag service
+  wiki-rag:
+    image: wiki-rag:latest
+    container_name: wiki-rag
+    volumes:
+      - ./data:/app/data
+      - ./.env:/app/.env
+    environment:
+      MILVUS_URL: http://milvus-standalone:19530
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      LOG_LEVEL: info
+    ports:
+      - "8081:8080"
+    depends_on:
+      - standalone
