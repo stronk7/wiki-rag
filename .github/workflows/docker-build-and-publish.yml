@@ -32,6 +32,8 @@ jobs:
             type=pep440,pattern={{version}}
             type=pep440,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
+        env:
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -55,3 +57,4 @@ jobs:
           provenance: false
           tags: ${{ steps.calculatetags.outputs.tags }}
           labels: ${{ steps.calculatetags.outputs.labels }}
+          annotations: ${{ steps.calculatetags.outputs.annotations }}
