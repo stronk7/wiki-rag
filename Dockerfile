@@ -1,15 +1,33 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
-WORKDIR /usr/src/app
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
 
-ARG VERSION
-ENV SETUPTOOLS_SCM_PRETEND_VERSION_FOR_WIKI_RAG=$VERSION
+ENV PYTHONUNBUFFERED=1
 
-ENV PYTHONPATH="/usr/src/app"
+WORKDIR /app/
 
-COPY pyproject.toml ./pyproject.toml
-RUN pip install --no-cache-dir -e .
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-COPY ./wiki_rag ./wiki_rag
+COPY ./pyproject.toml /app/pyproject.toml
+RUN --mount=source=.git,target=.git,type=bind \
+    pip install --no-cache-dir -e .
+
+FROM python:3.12-slim AS runner
+
+WORKDIR /app/
+
+COPY --from=builder /opt/venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
+
+ENV PYTHONPATH="/app"
+
+COPY ./LICENSE /app/
+COPY ./*.md /app/
+COPY ./wiki_rag /app/wiki_rag
 
 CMD ["wr-server"]
