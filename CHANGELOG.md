@@ -6,13 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formattted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.6.0] - 2025-03-09
 
 ### Added
 
-- Develop: Get commit messages and changelogs under control at ([1556f88](https://github.com/moodlehq/wiki-rag/commit/1556f8820f48ae465c0bc0dda00327d9bb35f3da))
-- Docs: Automate CHANGELOG.md generation at ([d4ef27d](https://github.com/moodlehq/wiki-rag/commit/d4ef27da410295c0600a334c61595a1982a8f083))
-- Release: Automate GitHub releases on tagging at ([2f7951f](https://github.com/moodlehq/wiki-rag/commit/2f7951f08082c1cd0c187ef8998735e1af7251ca))
+- Develop: Get commit messages and changelogs under control by @stronk7 at ([1556f88](https://github.com/moodlehq/wiki-rag/commit/1556f8820f48ae465c0bc0dda00327d9bb35f3da))
+- Docs: Automate CHANGELOG.md generation by @stronk7 at ([092f094](https://github.com/moodlehq/wiki-rag/commit/092f094e290c03f591a2f1857314a8a4e34d0c5b))
+- Release: Automate GitHub releases on tagging by @stronk7 at ([d35ea69](https://github.com/moodlehq/wiki-rag/commit/d35ea69496975cb3225c95a604f83ad81b310997))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.5.6...v0.6.0
+
 ## [0.5.6] - 2025-03-08
 
 ### Added
@@ -211,7 +214,7 @@ and commits should be formattted using [Conventional Commits](https://www.conven
 - @stronk7 made their first contribution
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.5.6..HEAD
+[0.6.0]: https://github.com/moodlehq/wiki-rag/compare/v0.5.6..v0.6.0
 [0.5.6]: https://github.com/moodlehq/wiki-rag/compare/v0.5.5..v0.5.6
 [0.5.5]: https://github.com/moodlehq/wiki-rag/compare/v0.5.4..v0.5.5
 [0.5.4]: https://github.com/moodlehq/wiki-rag/compare/v0.5.3..v0.5.4
