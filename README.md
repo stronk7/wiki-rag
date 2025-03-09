@@ -46,10 +46,12 @@ To get started with Wiki-RAG, ensure you have the following:
    ```bash
    pip install -e .
    ```
-   If interested into [contributing](CONTRIBUTING.md) to the project, you can install the development dependencies by running:
+   If interested into [contributing](CONTRIBUTING.md) to the project, you can install the development dependencies and enable all the checks by running:
    ```bash
-    pip install -e .[dev]
-    ```
+   pip install -e .[dev]  # To install all the development dependencies.
+   pre-commit install     # To enable all the check (style, lint, commits, etc.)
+   ```
+
 
 4. **Run the Application**:
    The application comes with four different executables:
@@ -86,12 +88,14 @@ To get started with Wiki-RAG, ensure you have the following:
    - **Note 6:** When running the `wr-server`, you still can execute any of the commands (`wr-load`, `wr-index`, `wr-search`) using `docker exec -it wiki-rag <command>`.
    - **Note 7:** To stop and remove the container, you can use `docker stop wiki-rag`.
 
-### Running with Docker Compose (all-in-ine)
+### Running with Docker Compose (all-in-one)
 
 1. Download the Milvus Docker Compose file:
    ```bash
    wget https://github.com/milvus-io/milvus/releases/download/v2.5.5/milvus-standalone-docker-compose.yml -O milvus-standalone.yml
-   [OR]
+   ```
+   OR
+   ```bash
    curl https://github.com/milvus-io/milvus/releases/download/v2.5.5/milvus-standalone-docker-compose.yml -o milvus-standalone.yml
    ```
 
@@ -102,12 +106,12 @@ To get started with Wiki-RAG, ensure you have the following:
    ```bash
    docker compose up -d
    ```
-  - **Note 4:** Some useful commands include.
-    - To stop all the containers, you can use `docker compose stop`.
-    - To start again all the containers, you can use `docker compose start`.
-    - To stop and remove all the containers, you can use `docker compose down`.
-  - **Note 5:** You can use `docker logs wiki-rag` to check the logs of the running container (`wr-server` logs).
-   - **Note 6:** When running, you still can execute any of the commands (`wr-load`, `wr-index`, `wr-search`) using `docker exec -it wiki-rag <command>`.
+   - **Note 4:** Some useful commands include:
+     - To stop all the containers, you can use `docker compose stop`.
+     - To start again all the containers, you can use `docker compose start`.
+     - To stop and remove all the containers, you can use `docker compose down`.
+   - **Note 5:** You can use `docker logs wiki-rag` to check the logs of the running container (`wr-server` logs).
+    - **Note 6:** When running, you still can execute any of the commands (`wr-load`, `wr-index`, `wr-search`) using `docker exec -it wiki-rag <command>`.
 
 ## Features
 

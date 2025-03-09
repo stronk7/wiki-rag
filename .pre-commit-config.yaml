@@ -1,3 +1,6 @@
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -14,12 +17,20 @@ repos:
       entry: ruff check
       language: system
       types: [python]
+      stages: [pre-commit]
     - id: pyright
       name: pyright
       entry: pyright
       language: system
       types: [python]
+      stages: [pre-commit]
+    - id: conventional-pre-commit
+      name: conventional-pre-commit
+      entry: conventional-pre-commit --verbose
+      language: system
+      stages: [commit-msg]
     - id: detect-secrets
       name: detect-secrets
       entry: detect-secrets-hook
       language: system
+      stages: [pre-commit]

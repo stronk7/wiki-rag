@@ -46,8 +46,10 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build == 1.2.2",
+    "conventional-pre-commit == 4.0.0",
     "coverage == 7.6.12",
     "detect-secrets == 1.5.0",
+    "git-cliff == 2.8.0",
     "pre-commit == 4.1.0",
     "pyright == 1.1.396",
     "ruff == 0.9.9",
