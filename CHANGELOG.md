@@ -11,7 +11,8 @@ and commits should be formattted using [Conventional Commits](https://www.conven
 ### Added
 
 - Develop: Get commit messages and changelogs under control at ([1556f88](https://github.com/moodlehq/wiki-rag/commit/1556f8820f48ae465c0bc0dda00327d9bb35f3da))
-- Docs: Automate CHANGELOG.md generation at ([6cb1caf](https://github.com/moodlehq/wiki-rag/commit/6cb1caf0de13489452c31ad3f66734d2a758ef09))
+- Docs: Automate CHANGELOG.md generation at ([d4ef27d](https://github.com/moodlehq/wiki-rag/commit/d4ef27da410295c0600a334c61595a1982a8f083))
+- Release: Automate GitHub releases on tagging at ([2f7951f](https://github.com/moodlehq/wiki-rag/commit/2f7951f08082c1cd0c187ef8998735e1af7251ca))
 ## [0.5.6] - 2025-03-08
 
 ### Added
