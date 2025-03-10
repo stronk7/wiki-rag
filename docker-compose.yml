@@ -17,7 +17,7 @@ services:
 
   # Define the wiki-rag service
   wiki-rag:
-    image: wiki-rag:latest
+    image: ghcr.io/moodlehq/wiki-rag:latest
     container_name: wiki-rag
     volumes:
       - ./data:/app/data
