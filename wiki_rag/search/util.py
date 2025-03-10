@@ -20,7 +20,8 @@ from langchain_core.prompts import (
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langgraph.graph.state import START, CompiledStateGraph, StateGraph
+from langgraph.constants import START
+from langgraph.graph.state import CompiledStateGraph, StateGraph
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
 import wiki_rag.index as index
@@ -51,6 +52,7 @@ class ConfigSchema(TypedDict):
     stream: bool
     wrapper_chat_max_turns: int
     wrapper_chat_max_tokens: int
+    wrapper_model_name: str
 
 
 class RagState(TypedDict):

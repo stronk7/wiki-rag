@@ -82,7 +82,7 @@ async def models_list() -> ModelsListResponse:
         object="list",
         data=[
             ModelResponse(
-                id=server.config["configurable"]["collection_name"],
+                id=server.config["configurable"]["wrapper_model_name"],
                 object="model",
                 created=int(time.time()),
                 owned_by=server.config["configurable"]["kb_name"],
@@ -113,7 +113,7 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
     if not request.model:
         raise HTTPException(status_code=400, detail="No model provided.")
 
-    if request.model != server.config["configurable"]["collection_name"]:
+    if request.model != server.config["configurable"]["wrapper_model_name"]:
         raise HTTPException(status_code=400, detail="Model not supported.")
 
     logger.debug(f"Request: {request}")

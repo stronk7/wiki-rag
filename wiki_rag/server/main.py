@@ -67,6 +67,7 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
+        # TODO: Validate that only numbers, letters and underscores are used.
 
     index.milvus_url = os.getenv("MILVUS_URL")
     if not index.milvus_url:
@@ -113,6 +114,10 @@ def main():
     # These are optional, default to 0 (unlimited).
     wrapper_chat_max_turns = int(os.getenv("WRAPPER_CHAT_MAX_TURNS", 0))
     wrapper_chat_max_tokens = int(os.getenv("WRAPPER_CHAT_MAX_TOKENS", 0))
+    wrapper_model_name = os.getenv("WRAPPER_MODEL_NAME") or os.getenv("COLLECTION_NAME")
+    if not wrapper_model_name:
+        logger.error("Public wrapper name not found in environment. Exiting.")  # This is unreachable.
+        sys.exit(1)
 
     logger.info("Building the graph")
     server.graph = build_graph()
@@ -136,6 +141,7 @@ def main():
         stream=False,
         wrapper_chat_max_turns=wrapper_chat_max_turns,
         wrapper_chat_max_tokens=wrapper_chat_max_tokens,
+        wrapper_model_name=wrapper_model_name,
     ).items()
 
     # Prepare the configuration.

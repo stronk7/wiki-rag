@@ -29,6 +29,8 @@ WRAPPER_API_BASE="0.0.0.0:8080"
 WRAPPER_CHAT_MAX_TURNS=10
 # To limit the number of OpenAI history tokens allowed in a chat (0 = no limit).
 WRAPPER_CHAT_MAX_TOKENS=1536
+# Public name that the wrapper will use to identify itself as a model. Will default to COLLECTION_NAME is not set.
+WRAPPER_MODEL_NAME="Your Model Name"
 
 # Validate requests auth against these bearer tokens.
 AUTH_TOKENS="11111111,22222222,33333333"
