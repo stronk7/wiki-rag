@@ -10,13 +10,13 @@ import colorlog
 
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
-    """Set up the logging configuration.
-
-    Very basic for now, just log to stderr, with a few extra fields (color, time, level, name, ...).
-    """
+    """Set up the logging configuration."""
     logging.Formatter.converter = time.gmtime
 
     log = logging.getLogger()
+
+    # Set the log level explicitly
+    log.setLevel(level)
 
     # Let's add the color handler.
     if not log.hasHandlers():
@@ -28,7 +28,5 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
             style="%",
         ))
         log.addHandler(handler)
-        log.setLevel(level)
-        log.propagate = False
 
     return log
