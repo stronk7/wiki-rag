@@ -3,7 +3,8 @@ name = "wiki-rag"
 description = "A simple RAG implementation using hybrid search with context optimisations against MediaWiki articles."
 keywords = ["rag", "llm", "hybrid", "search", "context", "milvus", "mediawiki", "ai", "research"]
 
-license = {text = "BSD-3-Clause"}
+license = "BSD-3-Clause"
+license-files = ["LICENSE"]
 readme = "README.md"
 
 authors = [
@@ -16,7 +17,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "Intended Audience :: Education",
     "Intended Audience :: Science/Research",
-    'License :: OSI Approved :: BSD License',
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -74,6 +74,7 @@ source = [
 omit = [
     "tests"
 ]
+command_line = "-m unittest discover -s tests"
 
 [tool.pyright]
 include = [
