@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formattted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.6.1] - 2025-03-21
+
+### Fixed
+
+- Docker: Provide the full container registry url by @stronk7 at ([40c3f3c](https://github.com/moodlehq/wiki-rag/commit/40c3f3cf9543fd27d3cdc086e4e62802de8721f2))
+- Environment: Split WRAPPER_MODEL_NAME from COLLECTION_NAME by @stronk7 at ([ea86ead](https://github.com/moodlehq/wiki-rag/commit/ea86ead8aef18d13ead6950f80d25b1f8bc16772))
+- Install: Make the project PEP 639 compliant by @stronk7 at ([6f9b4d2](https://github.com/moodlehq/wiki-rag/commit/6f9b4d228622aa232f995c64a7aea2c7c8a0b4f7))
+- Logging: Set the logging level explicitly, before the helper by @stronk7 at ([e8e0f96](https://github.com/moodlehq/wiki-rag/commit/e8e0f9696abf6f4a121f11def100403f789ec8d9))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.6.0...v0.6.1
+
 ## [0.6.0] - 2025-03-09
 
 ### Added
@@ -214,6 +225,7 @@ and commits should be formattted using [Conventional Commits](https://www.conven
 - @stronk7 made their first contribution
 
 
+[0.6.1]: https://github.com/moodlehq/wiki-rag/compare/v0.6.0..v0.6.1
 [0.6.0]: https://github.com/moodlehq/wiki-rag/compare/v0.5.6..v0.6.0
 [0.5.6]: https://github.com/moodlehq/wiki-rag/compare/v0.5.5..v0.5.6
 [0.5.5]: https://github.com/moodlehq/wiki-rag/compare/v0.5.4..v0.5.5
