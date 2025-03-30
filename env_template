@@ -32,6 +32,9 @@ WRAPPER_CHAT_MAX_TOKENS=1536
 # Public name that the wrapper will use to identify itself as a model. Will default to COLLECTION_NAME is not set.
 WRAPPER_MODEL_NAME="Your Model Name"
 
+# Model Context Protocol (MCP) base URL.
+MCP_API_BASE="0.0.0.0:8081"
+
 # Validate requests auth against these bearer tokens.
 AUTH_TOKENS="11111111,22222222,33333333"
 # Delegate bearer token auth to this URL.

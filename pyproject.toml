@@ -36,6 +36,7 @@ dependencies = [
     "langchain-openai == 0.3.7",
     "langgraph == 0.3.5",
     "langsmith == 0.3.11",
+    "mcp[cli] == 1.5.0",
     "pymilvus == 2.5.4",
     "python-dotenv == 1.0.1",
     "tiktoken == 0.9.0",
@@ -60,6 +61,7 @@ wr-load = "wiki_rag.load.main:main"
 wr-index = "wiki_rag.index.main:main"
 wr-search = "wiki_rag.search.main:main"
 wr-server = "wiki_rag.server.main:main"
+wr-mcp = "wiki_rag.mcp_server.main:main"
 
 [project.urls]
 Homepage = "https://github.com/moodlehq/wiki-rag"
