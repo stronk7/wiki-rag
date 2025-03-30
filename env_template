@@ -43,4 +43,4 @@ AUTH_URL="http://0.0.0.0:4000/key/info"
 # LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>
 
 # User agent for the crawler.
-USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiwki-rag)"
+USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"

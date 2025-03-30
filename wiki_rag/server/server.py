@@ -8,9 +8,12 @@ import logging
 import time
 import uuid
 
+from typing import Any
+
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk, BaseMessage
+from langchain_core.runnables import RunnableConfig
 
 from wiki_rag import __version__, server
 from wiki_rag.server.util import (
@@ -182,9 +185,10 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
         return StreamingResponse(open_ai_langgraph_stream(question, history), media_type="text/event-stream")
     else:
         logger.info("Running the search (non-streaming)")
-        completion = await server.graph.ainvoke(
-            {"question": question, "history": history},
-            config=server.config
+        completion = await invoke_graph(
+            question=question,
+            history=history,
+            config=server.config,
         )
 
         return ChatCompletionResponse(
@@ -199,3 +203,16 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
                 ),
             ],
         )
+
+
+async def invoke_graph(
+    question: str,
+    history: list[BaseMessage],
+    config: RunnableConfig,
+) -> Any:
+    """Invoke the graph with the given question, history and configuration. No streaming."""
+    assert server.graph is not None
+    return await server.graph.ainvoke(
+        {"question": question, "history": history},
+        config=config
+    )

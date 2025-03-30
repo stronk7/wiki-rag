@@ -47,8 +47,8 @@ class ConfigSchema(TypedDict):
     llm_model: str
     search_distance_cutoff: float
     max_completion_tokens: int
-    top_p: float
     temperature: float
+    top_p: float
     stream: bool
     wrapper_chat_max_turns: int
     wrapper_chat_max_tokens: int

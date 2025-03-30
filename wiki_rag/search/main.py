@@ -25,7 +25,7 @@ from wiki_rag.util import setup_logging
 
 
 async def run():
-    """Make an index from the json information present in the specified file."""
+    """Perform a search with all the configuration in place."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-search starting up...")
@@ -136,6 +136,7 @@ async def run():
         stream=stream,
         wrapper_chat_max_turns=0,
         wrapper_chat_max_tokens=0,
+        wrapper_model_name=llm_model,
     ).items()
 
     # Prepare the configuration.

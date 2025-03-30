@@ -22,7 +22,7 @@ from wiki_rag.util import setup_logging
 
 
 def main():
-    """Make an index from the json information present in the specified file."""
+    """Run the OpenAI server with all the configuration in place."""
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-server starting up...")
