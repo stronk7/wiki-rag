@@ -59,6 +59,7 @@ To get started with Wiki-RAG, ensure you have the following:
    - `wr-index`: In charge of creating the collection in the vector index (Milvus) with all the information extracted in the previous step.
    - `wr-search`: A tiny CLI utility to perform searches against the RAG system from the command line.
    - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM).
+   - `wr-mcp`: A complete and **UNPROTECTED** built-in MCP server that allows you to access to various parts of Wiki-RAG like prompts (system and use prompt with placeholders), resources (access to the source parsed documents) and tools (retrieve, optimise and generate) using the [MCP Protocol](https://modelcontextprotocol.io/).
 
 ### Running with Docker (Milvus elsewhere)
 
