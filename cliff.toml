@@ -89,6 +89,10 @@ conventional_commits = true
 filter_unconventional = false
 # regex for parsing and grouping commits
 commit_parsers = [
+    { message = "^test", group = "Fixed" },
+    { message = "^fix", group = "Fixed" },
+    { message = "^feat", group = "Added" },
+    { message = "^.*: fix", group = "Fixed" },
     { message = "^[a|A]dd", group = "Added" },
     { message = "^[s|S]upport", group = "Added" },
     { message = "^[r|R]emove", group = "Removed" },
@@ -98,10 +102,6 @@ commit_parsers = [
     { message = "^.*: [d|D]elete", group = "Removed" },
     { message = "^.*: [d|D]eprecate", group = "Deprecated" },
     { message = "^.*[s|S]ecurity", group = "Security" },
-    { message = "^test", group = "Fixed" },
-    { message = "^fix", group = "Fixed" },
-    { message = "^feat", group = "Added" },
-    { message = "^.*: fix", group = "Fixed" },
     { message = "^.*[p|P]repare for.*release", skip = true },
     { message = "^.*", group = "Changed" },
 ]
