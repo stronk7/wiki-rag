@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formattted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.6.2] - 2025-04-03
+
+### Fixed
+
+- Config: Add some missing config settings to the config schema by @stronk7 at ([9d308a6](https://github.com/moodlehq/wiki-rag/commit/9d308a660d4fc7639f7085b1ed34c604d8767cc0))
+- Changelog: Improve fix/feat detection for changelogs by @stronk7 at ([c2e88cf](https://github.com/moodlehq/wiki-rag/commit/c2e88cf7cf1bb758e820e58703a0af0f8d9965f0))
+- Docs: Amend the future work section with details by @stronk7 at ([64f00b9](https://github.com/moodlehq/wiki-rag/commit/64f00b9221693b7849a0d9af666aa762c4e84bfc))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.6.1...v0.6.2
+
 ## [0.6.1] - 2025-03-21
 
 ### Fixed
@@ -225,6 +235,7 @@ and commits should be formattted using [Conventional Commits](https://www.conven
 - @stronk7 made their first contribution
 
 
+[0.6.2]: https://github.com/moodlehq/wiki-rag/compare/v0.6.1..v0.6.2
 [0.6.1]: https://github.com/moodlehq/wiki-rag/compare/v0.6.0..v0.6.1
 [0.6.0]: https://github.com/moodlehq/wiki-rag/compare/v0.5.6..v0.6.0
 [0.5.6]: https://github.com/moodlehq/wiki-rag/compare/v0.5.5..v0.5.6
