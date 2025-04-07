@@ -103,6 +103,7 @@ commit_parsers = [
     { message = "^.*: [d|D]eprecate", group = "Deprecated" },
     { message = "^.*[s|S]ecurity", group = "Security" },
     { message = "^.*[p|P]repare for.*release", skip = true },
+    { message = "^Merge pull request #[0-9]+ from .*", skip = true },
     { message = "^.*", group = "Changed" },
 ]
 # filter out the commits that are not matched by commit parsers

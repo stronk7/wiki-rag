@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formattted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.7.0] - 2025-04-07
+
+### Added
+
+- MCP: Make Wiki-RAG to behave as a MCP server by @stronk7 at ([dfd34b3](https://github.com/moodlehq/wiki-rag/commit/dfd34b346a5615ad7490b7c29f44fc65fb58b6a9))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.6.2...v0.7.0
+
 ## [0.6.2] - 2025-04-03
 
 ### Fixed
@@ -235,6 +243,7 @@ and commits should be formattted using [Conventional Commits](https://www.conven
 - @stronk7 made their first contribution
 
 
+[0.7.0]: https://github.com/moodlehq/wiki-rag/compare/v0.6.2..v0.7.0
 [0.6.2]: https://github.com/moodlehq/wiki-rag/compare/v0.6.1..v0.6.2
 [0.6.1]: https://github.com/moodlehq/wiki-rag/compare/v0.6.0..v0.6.1
 [0.6.0]: https://github.com/moodlehq/wiki-rag/compare/v0.5.6..v0.6.0
