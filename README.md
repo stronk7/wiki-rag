@@ -120,7 +120,34 @@ To get started with Wiki-RAG, ensure you have the following:
 
 ## Future Work
 
-   Support partial/incremental loading / More granular splits / loaders to become plugins / include/exclude lists / compare results with different embeddings / fine tune the embedding / consider adding summaries, multiple levels and more metadata / [able to use other vector databases](https://github.com/moodlehq/wiki-rag/issues/3) / add other algos, apart from current POP and POC / support multi-level searches / context-aware rag / extra querying techniques / prepare an evaluation collection / apply thresholds to results / better Open AI implementation, supporting more parameters / better prompt management / context-size control / add guardrails at different levels / [move configuration away from env file](https://github.com/moodlehq/wiki-rag/issues/2) / provide access to the rag from moodlebot / better fit in multi-agentic environments / detect out of scope questions better / semantic routing / [support MCP (model context protocol)](https://github.com/moodlehq/wiki-rag/issues/4) / make everything pluggable / add unit and integration tests / automate checks and releases
+   Support partial/incremental loading /
+   more granular splits /
+   loaders to become plugins /
+   [use markdown as "backend format"](https://github.com/moodlehq/wiki-rag/issues/5) /
+   include/exclude lists /
+   compare results with different embeddings /
+   fine tune the embedding /
+   consider adding summaries, multiple levels and more metadata /
+   [able to use other vector databases](https://github.com/moodlehq/wiki-rag/issues/3) /
+   add other algos, apart from current POP and POC /
+   support multi-level searches /
+   context-aware rag /
+   extra querying techniques /
+   prepare an evaluation collection /
+   apply thresholds to results /
+   better Open AI implementation, supporting more parameters /
+   better prompt management /
+   context-size control /
+   add guardrails at different levels /
+   [move configuration away from env file](https://github.com/moodlehq/wiki-rag/issues/2) /
+   provide access to the rag from moodlebot /
+   better fit in multi-agentic environments /
+   detect out of scope questions better /
+   semantic routing /
+   ~~[support MCP (model context protocol)](https://github.com/moodlehq/wiki-rag/issues/4)~~ /
+   make everything pluggable /
+   add unit and integration tests /
+   automate checks and releases
 
 ## Documentation
 
