@@ -77,6 +77,14 @@ def main():
             exclusions[exclusion_type] = exclusion_values
     logger.info(f"Applying exclusions: {exclusions}")
 
+    # The list of templates, comma separated, that we want to keep in the wiki text. Others will be removed.
+    keep_templates = os.getenv("MEDIAWIKI_KEEP_TEMPLATES")
+    if keep_templates:
+        keep_templates = [template.strip() for template in keep_templates.split(",")]
+    else:
+        keep_templates = []
+    logger.info(f"Keeping templates: {keep_templates}")
+
     collection_name = os.getenv("COLLECTION_NAME")
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
@@ -95,13 +103,13 @@ def main():
     logger.info(f"Loaded {len(pages)} pages.")
 
     logger.info("Parsing and splitting pages")
-    parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent, exclusions)
+    parsed_pages = get_mediawiki_parsed_pages(mediawiki_url, pages, user_agent, exclusions, keep_templates)
     logger.info(f"Parsed {len(parsed_pages)} pages.")
 
     logger.info(f"Saving parsed pages to {dump_filename}")
     save_parsed_pages(parsed_pages, dump_filename)
 
-    logger.info(f"wiki_rag-load finished.")  # noqa: F541
+    logger.info("wiki_rag-load finished.")
 
 
 if __name__ == "__main__":

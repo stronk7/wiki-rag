@@ -10,6 +10,7 @@ MEDIAWIKI_URL="https://your.mediaiki/base/url
 # Comma separated list (general and others, see https://www.mediawiki.org/wiki/Manual:Namespace#Built-in_namespaces)
 MEDIAWIKI_NAMESPACES="0,4,12"
 MEDIAWIKI_EXCLUDED="categories:Category A, Category B;wikitext:Some regex to exclude"
+MEDIAWIKI_KEEP_TEMPLATES="Template1, Template2"
 
 # This is both the DB collection name and the model name for the OpenAI API.
 COLLECTION_NAME="your_collection_name"

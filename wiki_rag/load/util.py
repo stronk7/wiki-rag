@@ -90,31 +90,35 @@ def get_mediawiki_parsed_pages(
         mediawiki_url: str,
         pages: list[dict],
         user_agent: str,
-        exclusions: dict[str, list[str]]
+        exclusions: dict[str, list[str]],
+        keep_templates: list[str]
 ) -> list[dict]:
     """Parse the pages and split them into sections.
 
     :param mediawiki_url: The url of the mediawiki site.
     :param pages: The list of pages to parse.
     :param user_agent: The user agent to use in the requests.
+    :param exclusions: The list of exclusions to apply to the pages.
+    :param keep_templates: The list of templates to keep in the wiki text.
     :return: The list of parsed pages.
     """
     parsed_pages = []
     for page in tqdm(pages, desc="Processing pages", unit="page"):
         time.sleep(random.uniform(2, 3))  # We aren't in a hurry (it's only a few requests).
         try:
-            sections, categories, internal_links, external_links, language_links = parse_page(
+            sections, categories, templates, internal_links, external_links, language_links = parse_page(
                 mediawiki_url, page["pageid"], user_agent, exclusions)  # Parse pages and sections.
             if not sections:  # Something, maybe an exclusion, caused this page to be skipped.
                 continue
-            tidy_sections_text(mediawiki_url, sections, categories, internal_links, external_links,
-                               language_links)  # Tidy up contents and links.
+            tidy_sections_text(mediawiki_url, sections, categories, templates, internal_links, external_links,
+                               language_links, keep_templates)  # Tidy up contents and links.
             calculate_relationships(sections)  # Calculate all the relationships between sections.
             parsed_pages.append({
                 "id": page["pageid"],
                 "title": page["title"],
                 "sections": sections,
                 "categories": categories,
+                "templates": templates,
                 "internal_links": internal_links,
                 "external_links": external_links,
                 "language_links": language_links,
@@ -142,7 +146,7 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str, exclusions: di
         "action": "parse",
         "format": "json",
         "pageid": page_id,
-        "prop": "title|revid|wikitext|sections|categories|links|langlinks|externallinks|subtitle",
+        "prop": "revid|wikitext|sections|categories|templates|links|langlinks|externallinks|subtitle",
     }
 
     session = requests.Session()
@@ -152,6 +156,7 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str, exclusions: di
     revision_id = result.json()["parse"]["revid"]
     title = result.json()["parse"]["title"]
     categories = [cat["*"] for cat in result.json()["parse"]["categories"]]
+    templates = [template["*"].replace("Template:", "") for template in result.json()["parse"]["templates"]]
     internal_links = [link["*"] for link in result.json()["parse"]["links"] if "exists" in link]
     external_links = result.json()["parse"]["externallinks"]
     language_links = [f"{lang["lang"]}:{lang["*"]}" for lang in result.json()["parse"]["langlinks"]]
@@ -237,10 +242,11 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str, exclusions: di
         sections.append(section)
 
     sections.reverse()  # And back again to the original order.
-    return [sections, categories, internal_links, external_links, language_links]
+    return [sections, categories, templates, internal_links, external_links, language_links]
 
 
-def tidy_sections_text(mediawiki_url, sections, categories, internal_links, external_links, language_links) -> None:
+def tidy_sections_text(mediawiki_url, sections, categories, templates,
+                       internal_links, external_links, language_links, keep_templates):
     """Apply various text transformations to the mediawiki text."""
     for section in sections:
         # Remove all the categories information from the text.
@@ -279,9 +285,11 @@ def tidy_sections_text(mediawiki_url, sections, categories, internal_links, exte
         # Remove images and files. TODO: Analyse if we want them back, at least listing them like the links.
         pattern = re.compile(r"\[\[(File|Image):.+?\]\]")
         section["text"] = re.sub(pattern, "", section["text"])
-        # Remove all templates in the text.
-        pattern = re.compile(r"\{\{.+?\}\}", re.DOTALL | re.MULTILINE)
-        section["text"] = re.sub(pattern, "", section["text"])
+        # Remove templates in the text unless they are configured to be kept.
+        for template in templates:
+            if template not in keep_templates:
+                pattern = re.compile(rf"{{{{{re.escape(template)}.*?}}}}", re.DOTALL | re.MULTILINE)
+                section["text"] = re.sub(pattern, "", section["text"])
         # Remove all section headings in the text. We'll be adding them later in a tree-ish structure.
         pattern = re.compile(r"==+.+?==+")
         section["text"] = re.sub(pattern, "", section["text"])
