@@ -169,12 +169,12 @@ def parse_page(mediawiki_url: str, page_id: int, user_agent: str, exclusions: di
             # If any of the categories is in the exclusion list, we skip the page.
             if any(cat.replace(" ", "_") in categories for cat in exclusions[exclusion]):
                 logger.info(f"Excluding page {title} due to category exclusion.")
-                return [[], [], [], [], []]
+                return [[], [], [], [], [], []]
         elif exclusion == "wikitext":
             # If the wikitext contains any of the exclusion regexes, we skip the page.
             if any(re.search(f"{text}", wikitext) for text in exclusions[exclusion]):
                 logger.info(f"Excluding page {title} due to wikitext regex exclusion.")
-                return [[], [], [], [], []]
+                return [[], [], [], [], [], []]
         else:
             logger.error(f"Unknown exclusion type {exclusion}")
 

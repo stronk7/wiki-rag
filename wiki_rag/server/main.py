@@ -135,7 +135,7 @@ def main():
         embedding_dimension=embedding_dimensions,
         llm_model=llm_model,
         search_distance_cutoff=0.6,
-        max_completion_tokens=768,
+        max_completion_tokens=960,
         temperature=0.05,
         top_p=0.85,
         stream=False,
