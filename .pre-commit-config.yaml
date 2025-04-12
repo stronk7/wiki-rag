@@ -34,3 +34,9 @@ repos:
       entry: detect-secrets-hook
       language: system
       stages: [pre-commit]
+    - id: codespell
+      name: codespell
+      entry: codespell
+      language: python
+      types: [text]
+      stages: [pre-commit]

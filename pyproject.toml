@@ -47,6 +47,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "build == 1.2.2",
+    "codespell == 2.4.1",
     "conventional-pre-commit == 4.0.0",
     "coverage == 7.6.12",
     "detect-secrets == 1.5.0",
@@ -118,6 +119,11 @@ max-line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/test_**.py" = ["D101", "D102", "D103"] # Don't require doc strings for tests
+
+[tool.codespell]
+ignore-words-list = [
+  "upport" # Part of regular expressions in cliff.toml
+]
 
 [build-system]
 requires = ["setuptools", "setuptools-scm"]

@@ -11,6 +11,8 @@ storage*/
 .idea/
 # Python virtual environment
 .venv/
+# npm node_modules
+node_modules/
 # Python bytecode caches
 __pycache__
 *.pyc
