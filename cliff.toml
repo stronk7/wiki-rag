@@ -46,6 +46,7 @@ body = """
 {%- if github -%}
   {% if github.contributors | filter(attribute="is_first_time", value=true) | length != 0 %}
     ### New Contributors 🧡:
+    {% set new_contributors = true -%}
   {% endif %}\
   {% for contributor in github.contributors | filter(attribute="is_first_time", value=true) %}
     - @{{ contributor.username }} made their first contribution
@@ -53,6 +54,9 @@ body = """
         [#{{ contributor.pr_number }}]({{ self::remote_url() }}/pull/{{ contributor.pr_number }}) \
       {%- endif %}
   {%- endfor -%}
+  {%- if new_contributors -%}
+    {% raw %}\n{% endraw %}
+  {%- endif -%}
 {%- endif -%}
 
 {%- if version -%}

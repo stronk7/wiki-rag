@@ -6,6 +6,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.7.1] - 2025-04-13
+
+### Added
+
+- Loader: Add support to keep some templates in the wiki text by @stronk7 at ([07f05e4](https://github.com/moodlehq/wiki-rag/commit/07f05e4287724d66fbea2f17d7a52f60887aab96))
+- CI: Add support for codespell via pre-commit hooks at ([c7f9d96](https://github.com/moodlehq/wiki-rag/commit/c7f9d964358ccf8497f071304acbd48aa8c074cc))
+
+### Changed
+
+- Update cliff.toml by @cclauss at ([f50fa79](https://github.com/moodlehq/wiki-rag/commit/f50fa7913151ccba24f41b83057826ad8e9dbf22))
+
+### Fixed
+
+- Docs: Small changes towards better tracking of modifications by @stronk7 at ([9fe3e14](https://github.com/moodlehq/wiki-rag/commit/9fe3e148a9a7b9aedbaa15dfb4b2f31df16d360b))
+- Typos discovered by codespell by @cclauss at ([c4a7fef](https://github.com/moodlehq/wiki-rag/commit/c4a7fefd56596d76f3070e5cd715767f32b3c275))
+- Fix a few defaults and return lists at ([79bb773](https://github.com/moodlehq/wiki-rag/commit/79bb773994d9945df47b56630cd38fde12df5741))
+
+### New Contributors 🧡:
+
+- @cclauss made their first contribution
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.7.0...v0.7.1
+
 ## [0.7.0] - 2025-04-07
 
 ### Added
@@ -243,6 +266,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - @stronk7 made their first contribution
 
 
+
+[0.7.1]: https://github.com/moodlehq/wiki-rag/compare/v0.7.0..v0.7.1
 [0.7.0]: https://github.com/moodlehq/wiki-rag/compare/v0.6.2..v0.7.0
 [0.6.2]: https://github.com/moodlehq/wiki-rag/compare/v0.6.1..v0.6.2
 [0.6.1]: https://github.com/moodlehq/wiki-rag/compare/v0.6.0..v0.6.1
