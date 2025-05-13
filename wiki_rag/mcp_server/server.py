@@ -23,6 +23,7 @@ from wiki_rag.server.server import invoke_graph
 from wiki_rag.server.util import (
     Message,
     convert_from_openai_to_langchain,
+    filter_completions_history,
 )
 
 logger = logging.getLogger(__name__)
@@ -86,11 +87,19 @@ async def generate(messages: list[Message]) -> str:
     """Get the LLM generated answer after retrieving and optimising."""
     assert server.config is not None and "configurable" in server.config
 
+    # Filter the messages to ensure they don't exceed the maximum number of turns and tokens.
+    history = filter_completions_history(
+        messages,
+        max_turns_allowed=server.config["configurable"]["wrapper_chat_max_turns"],
+        max_tokens_allowed=server.config["configurable"]["wrapper_chat_max_tokens"],
+        remove_system_messages=True,
+    )
+
     # Extract the last message, our new question, out from history.
-    question = messages.pop()["content"]
+    question = history.pop()["content"]
 
     # Convert the messages to the format expected by langgraph.
-    history = convert_from_openai_to_langchain(messages)
+    history = convert_from_openai_to_langchain(history)
 
     logger.info("Building the generate complete graph")
     server.graph = build_graph()
