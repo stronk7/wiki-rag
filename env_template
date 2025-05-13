@@ -22,7 +22,10 @@ MILVUS_URL="http://0.0.0.0:19530"
 EMBEDDING_MODEL="your_embedding_model"
 # Specify the default real embedding dims used. Some providers don't allow to change this.
 EMBEDDING_DIMENSIONS=768
+# Model used to generate the answers.
 LLM_MODEL="your_llm_model"
+# Model used to contextualize the questions for RAG (optional feature).
+# CONTEXTUALISATION_MODEL="your_llm_model"
 
 # OpenAI wrapper base URL.
 WRAPPER_API_BASE="0.0.0.0:8080"

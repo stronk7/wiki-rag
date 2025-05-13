@@ -102,6 +102,8 @@ async def run():
         logger.error("LLM model not found in environment. Exiting.")
         sys.exit(1)
 
+    contextualisation_model = os.getenv("CONTEXTUALISATION_MODEL")
+
     # Let's accept arg[1] as the question to be asked.
     parser = argparse.ArgumentParser()
     parser.add_argument("question", nargs="+", help="The question to be asked.")
@@ -129,6 +131,7 @@ async def run():
         embedding_model=embedding_model,
         embedding_dimension=embedding_dimensions,
         llm_model=llm_model,
+        contextualisation_model=contextualisation_model,
         search_distance_cutoff=0.6,
         max_completion_tokens=960,
         temperature=0.05,
