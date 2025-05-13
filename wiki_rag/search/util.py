@@ -7,9 +7,7 @@ import logging
 import os
 import pprint
 
-from typing import Annotated, TypedDict
-
-import langgraph.constants
+from typing import Annotated, Literal, TypedDict
 
 from cachetools import TTLCache, cached
 from langchain import hub
@@ -23,7 +21,7 @@ from langchain_core.prompts import (
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langgraph.config import get_stream_writer
-from langgraph.constants import START
+from langgraph.constants import END, START
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
@@ -86,14 +84,17 @@ def build_graph() -> CompiledStateGraph:
         optimise,
         generate
     ])
-    graph_builder.add_conditional_edges("query_rewrite", chitchat_or_rewrite)
+    graph_builder.add_conditional_edges("query_rewrite", retrieve_or_chitchat, {
+        "retrieve": "retrieve",
+        "chitchat": END,
+    })
 
     graph_builder.add_edge(START, "query_rewrite")
     graph = graph_builder.compile()
     return graph
 
 
-def chitchat_or_rewrite(state: RagState, config: RunnableConfig) -> str | None:
+def retrieve_or_chitchat(state: RagState, config: RunnableConfig) -> Literal["retrieve", "chitchat"]:
     """Check if the answer is a chitchat or a rewrite.
 
     This is used to decide if we need to continue with the search or not.
@@ -102,7 +103,7 @@ def chitchat_or_rewrite(state: RagState, config: RunnableConfig) -> str | None:
 
     # If the answer has already being set, we are done (probably a chitchat).
     if "answer" in state:
-        return langgraph.constants.END
+        return "chitchat"
 
     return "retrieve"  # Continue with the search.
 
