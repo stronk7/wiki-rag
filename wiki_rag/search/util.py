@@ -7,7 +7,9 @@ import logging
 import os
 import pprint
 
-from typing import TypedDict
+from typing import Annotated, TypedDict
+
+import langgraph.constants
 
 from cachetools import TTLCache, cached
 from langchain import hub
@@ -20,6 +22,7 @@ from langchain_core.prompts import (
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langgraph.config import get_stream_writer
 from langgraph.constants import START
 from langgraph.graph.state import CompiledStateGraph, StateGraph
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
@@ -45,6 +48,7 @@ class ConfigSchema(TypedDict):
     embedding_model: str
     embedding_dimension: int
     llm_model: str
+    contextualisation_model: str | None
     search_distance_cutoff: float
     max_completion_tokens: int
     temperature: float
@@ -66,16 +70,41 @@ class RagState(TypedDict):
     answer: str | None
 
 
+class ContextualisedAnswer(TypedDict):
+    """Contextualised question to be used in the RAG graph execution."""
+
+    type: Annotated[str, "question", "The type of the answer (question or chitchat"]
+    content: Annotated[str, ..., "The answer, that can be a question or some chitchat text"]
+
+
 def build_graph() -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
-    graph_builder = StateGraph(RagState, ConfigSchema).add_sequence([
+    graph_builder = StateGraph(RagState, ConfigSchema)
+    graph_builder.add_node(query_rewrite)
+    graph_builder.add_sequence([
         retrieve,
         optimise,
         generate
     ])
-    graph_builder.add_edge(START, "retrieve")
+    graph_builder.add_conditional_edges("query_rewrite", chitchat_or_rewrite)
+
+    graph_builder.add_edge(START, "query_rewrite")
     graph = graph_builder.compile()
     return graph
+
+
+def chitchat_or_rewrite(state: RagState, config: RunnableConfig) -> str | None:
+    """Check if the answer is a chitchat or a rewrite.
+
+    This is used to decide if we need to continue with the search or not.
+    """
+    assert "configurable" in config
+
+    # If the answer has already being set, we are done (probably a chitchat).
+    if "answer" in state:
+        return langgraph.constants.END
+
+    return "retrieve"  # Continue with the search.
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
@@ -89,7 +118,7 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
         if os.getenv("LANGSMITH_TRACING", "false") == "true":
-            logger.info(f"Loading the prompt {prompt_name} from LangSmith.")
+            logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
             chat_prompt = hub.pull(prompt_name)
         else:
             chat_prompt = load_prompts_for_rag_from_local(prompt_name)
@@ -97,17 +126,19 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
         logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}. Applying default one.")
         chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     finally:
+        logger.debug(f"Returning the prompt {prompt_name}")
         return chat_prompt
 
 
 def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     """Load the prompts from the local configuration."""
-    chat_prompt = ChatPromptTemplate([])
-
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     logger.info(f"Loading the prompt {prompt_name} from local.")
 
-    # Use the manual prompt building instead.
+    # TODO: We should move the local handling of prompts to another place, this is not
+    #   the best solution (say some local prompt management or whatever).
+
+    # This is the default prompt that we use in the wiki-rag project.
     system_prompt = SystemMessagePromptTemplate.from_template(
         "You are an assistant for question-answering tasks related to {task_def}, "
         "using the information present in {kb_name}, publicly available at {kb_url}."
@@ -140,6 +171,32 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
         ""
         "Answer: "
     )
+
+    # If we are using the wiki-rag-context-query prompt, let's update the needed pieces.
+    if prompt_name == "wiki-rag-context-query":
+        system_prompt = SystemMessagePromptTemplate.from_template(
+            "Given the chat history and the original question which might reference "
+            "context in the chat history, rephrase and expand the original question "
+            "so it  can be understood without the chat history. Do NOT answer to the "
+            "original question."
+            ""
+            "Always return a valid JSON structure with two elements:"
+            '1. A "type" element with value "rewrite".'
+            '2. A "content" element containing the rephrased question.'
+            ""
+            "f the original user question is not a question or a request for help, but a expression or some "
+            "unrelated text, then answer to it in an educated and positive way. In this case, "
+            'the "type" element on the required JSON structure will be "chitchat" instead of "rewrite".'
+            ""
+            "Do NOT make any reference in the answer to these guidelines."
+        )
+        user_message = HumanMessagePromptTemplate.from_template(
+            "Original Question: {question}"
+            ""
+            "Answer: "
+        )
+
+    # Let's build the complete prompt with the system, the history and the user message.
     messages = (
         system_prompt,
         MessagesPlaceholder("history", optional=True),
@@ -149,6 +206,84 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     return chat_prompt
 
 
+async def query_rewrite(state: RagState, config: RunnableConfig) -> RagState:
+    """Rewrite the question using the query rewrite model.
+
+    This is a simple query rewrite model that will be used to rewrite the question
+    before sending it to the search engine. It will be used to improve the search results.
+
+    The model will return a JSON object with the following fields:
+    - type: The type of the answer (rewrite or chitchat)
+    - content: The answer, that can be a question or some chitchat text
+
+    In the case of a chitchat, the answer will be used as the final answer, otherwise
+    the question will be rewritten (made context-aware) and used for the search.
+    """
+    assert "configurable" in config
+
+    if config["configurable"]["contextualisation_model"]:
+        contextualise_prompt = load_prompts_for_rag(
+            f"{config['configurable']['prompt_name']}-context-query"
+        )
+
+        contextualised_answer = await contextualise_question(
+            prompt=contextualise_prompt,
+            question=state["question"],
+            history=state["history"],
+            model=config["configurable"]["contextualisation_model"],
+        )
+
+        if contextualised_answer["type"] == "rewrite":
+            # If the answer is a question, we are going to use it as the new question.
+            state["question"] = contextualised_answer["content"]
+
+        elif contextualised_answer["type"] == "chitchat":
+            # If the answer is a chitchat, we are going to use it as the final answer,
+            state["answer"] = contextualised_answer["content"]
+            # Let's generate a custom event to notify it to the graph caller about the chitchat answer.
+            writer = get_stream_writer()
+            writer(contextualised_answer)
+
+    return state
+
+
+async def contextualise_question(
+        prompt: ChatPromptTemplate,
+        question: str,
+        history: list[BaseMessage],
+        model: str,
+) -> dict:
+    """Contextualise the question with the history and the model.
+
+    This makes the RAG questions way better, context/history aware. The question
+    only will be contextualised if there is some history and the model decides
+    to provide a better alternative.
+
+    Note that the history at this point has been already filtered, does not contain
+    any system prompts and is already in the format expected.
+    """
+    logger.debug(f"Contextualising the question: {question}")
+    chat = await prompt.ainvoke({
+        "question": question,
+        "history": history,
+    })
+
+    llm = ChatOpenAI(
+        model=model,
+        max_completion_tokens=512,  # TODO: Make these 3 configurable.
+        top_p=0.85,
+        temperature=0.1,
+        disable_streaming=True,
+    )
+    json_llm = llm.with_structured_output(ContextualisedAnswer)
+
+    answer = await json_llm.ainvoke(chat)
+
+    logger.debug(f"Contextualised result: {answer}")
+
+    return answer
+
+
 async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     """Retrieve the best matches from the indexed database.
 
@@ -156,9 +291,10 @@ async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     and a BM25 search (sparse, full text). And then will rerank results with the weighted
     reranker.
     """
+    assert "configurable" in config
+
     # Note that here we are using the Milvus own library instead of the LangChain one because
     # the LangChain one doesn't support many of the features used here.
-    assert ("configurable" in config)
     embeddings = OpenAIEmbeddings(
         model=config["configurable"]["embedding_model"],
         dimensions=config["configurable"]["embedding_dimension"]
@@ -392,7 +528,9 @@ async def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
     This is the final generation step where the prompt, the chat history and the context
     are used to generate the final answer.
     """
-    assert ("configurable" in config)
+    assert "configurable" in config
+
+    # Let's make the generation LLM call normally.
     llm = ChatOpenAI(
         model=config["configurable"]["llm_model"],
         max_completion_tokens=config["configurable"]["max_completion_tokens"],
