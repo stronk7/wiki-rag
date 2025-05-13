@@ -154,17 +154,40 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
             assert server.graph is not None
 
             index: int = 0
-            async for message, metadata in server.graph.astream(
+            async for mode, info in server.graph.astream(
                     {"question": question, "history": history},
                     config=server.config,
-                    stream_mode="messages"
+                    stream_mode=["custom", "messages"]
             ):
-                if (
-                    isinstance(message, AIMessageChunk) and
-                    isinstance(metadata, dict) and
-                    metadata.get("langgraph_node", "") == "generate" and
-                    message.content
+                # See if the streamed event needs to be considered.
+                process_event = False
+                content = ""
+                # Accept custom events coming from the query_rewrite node.
+                if (mode == "custom" and
+                    isinstance(info, dict) and
+                    info.get("type", "") == "chitchat"
                 ):
+                    process_event = True
+                    content = info.get("content", "There was a problem talking with you, I'm sorry.")
+
+                # Accept AI message chunks events coming from the generate node.
+                if mode == "messages":
+                    # Message events (when using multiple stream mode, like here) are
+                    # tuples with the message and metadata. When not using multiple stream mode,
+                    # but only one, they come as 2 returned values (message, metadata), without mode.
+                    message = info[0]
+                    metadata = info[1]
+                    if (
+                        isinstance(message, AIMessageChunk) and
+                        isinstance(metadata, dict) and
+                        metadata.get("langgraph_node", "") == "generate" and
+                        message.content
+                    ):
+                        process_event = True
+                        content = message.content
+
+                # Time to process an event chunk.
+                if process_event:
                     chunk = {
                         "id": str(uuid.uuid4()),
                         "object": "chat.completion.chunk",
@@ -174,7 +197,7 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
                             "index": index,
                             "delta": {
                                 "role": "assistant",
-                                "content": message.content
+                                "content": content
                             }
                         }],
                     }
