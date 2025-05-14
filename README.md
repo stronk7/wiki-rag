@@ -131,7 +131,7 @@ To get started with Wiki-RAG, ensure you have the following:
    [able to use other vector databases](https://github.com/moodlehq/wiki-rag/issues/3) /
    add other algos, apart from current POP and POC /
    support multi-level searches /
-   context-aware rag /
+   ~~[context-aware rag](https://github.com/moodlehq/wiki-rag/commit/77cac73469da7c07710851be51321b13e1c923fc)~~ /
    extra querying techniques /
    prepare an evaluation collection /
    apply thresholds to results /
