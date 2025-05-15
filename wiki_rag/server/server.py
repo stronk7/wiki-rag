@@ -154,6 +154,7 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
             assert server.graph is not None
 
             index: int = 0
+            # TODO: Encapsulate this, it's duplicated in the search.
             async for mode, info in server.graph.astream(
                     {"question": question, "history": history},
                     config=server.config,

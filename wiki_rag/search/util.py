@@ -185,7 +185,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
             '1. A "type" element with value "rewrite".'
             '2. A "content" element containing the rephrased question.'
             ""
-            "f the original user question is not a question or a request for help, but a expression or some "
+            "If the original user question is not a question or a request for help, but a expression or some "
             "unrelated text, then answer to it in an educated and positive way. In this case, "
             'the "type" element on the required JSON structure will be "chitchat" instead of "rewrite".'
             ""

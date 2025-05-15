@@ -114,7 +114,7 @@ async def run():
     question = " ".join(args.question)
 
     stream = args.stream if args.stream else False
-    logger.info(f'Question: "{question}"')
+    logger.debug(f'Question: "{question}"')
 
     logger.info("Building the graph")
     graph = build_graph()
@@ -153,16 +153,45 @@ async def run():
         response = await graph.ainvoke({"question": question, "history": []}, config=config)
         print(f"\033[93m{response["answer"]}\033[0m", end="")
     else:
-        logger.info(f"Running the search (streaming)")  # noqa: F541
-        async for message, metadata in graph.astream(
-                {"question": question, "history": []}, config=config, stream_mode="messages"):
+        logger.info("Running the search (streaming)")
+        # TODO: Encapsulate this, it's duplicated in the server.
+        async for mode, info in graph.astream(
+                {"question": question, "history": []},
+                config=config,
+                stream_mode=["custom", "messages"]):
+            # See if the streamed event needs to be considered.
+            process_event = False
+            content = ""
+            # Accept custom events coming from the query_rewrite node.
             if (
-                    isinstance(message, AIMessageChunk) and
-                    isinstance(metadata, dict) and
-                    metadata.get("langgraph_node", "") == "generate" and
-                    message.content
+                mode == "custom"
+                and isinstance(info, dict)
+                and info.get("type", "") == "chitchat"
             ):
-                print(f"\033[93m{message.content}\033[0m", end="", flush=True)
+                process_event = True
+                content = info.get(
+                    "content", "There was a problem talking with you, I'm sorry."
+                )
+
+            # Accept AI message chunks events coming from the generate node.
+            if mode == "messages":
+                # Message events (when using multiple stream mode, like here) are
+                # tuples with the message and metadata. When not using multiple stream mode,
+                # but only one, they come as 2 returned values (message, metadata), without mode.
+                message = info[0]
+                metadata = info[1]
+                if (
+                    isinstance(message, AIMessageChunk)
+                    and isinstance(metadata, dict)
+                    and metadata.get("langgraph_node", "") == "generate"
+                    and message.content
+                ):
+                    process_event = True
+                    content = message.content
+
+            if process_event:
+                print(f"\033[93m{content}\033[0m", end="", flush=True)
+
     print("", end="\n\n")
 
     logger.info("wiki_rag-search finished.")
