@@ -40,3 +40,9 @@ repos:
       language: python
       types: [text]
       stages: [pre-commit]
+    - id: unittest
+      name: unittest
+      entry: bash -c '$(find . -path "*env*/bin/python" -print -quit) -m unittest discover -t . -s tests'
+      pass_filenames: false
+      language: system
+      types: [python]
