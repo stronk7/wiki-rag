@@ -207,7 +207,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     return chat_prompt
 
 
-async def query_rewrite(state: RagState, config: RunnableConfig) -> RagState:
+async def query_rewrite(state: RagState, config: RunnableConfig) -> dict:
     """Rewrite the question using the query rewrite model.
 
     This is a simple query rewrite model that will be used to rewrite the question
@@ -234,18 +234,19 @@ async def query_rewrite(state: RagState, config: RunnableConfig) -> RagState:
             model=config["configurable"]["contextualisation_model"],
         )
 
-        if contextualised_answer["type"] == "rewrite":
-            # If the answer is a question, we are going to use it as the new question.
-            state["question"] = contextualised_answer["content"]
-
-        elif contextualised_answer["type"] == "chitchat":
+        if contextualised_answer["type"] == "chitchat":
             # If the answer is a chitchat, we are going to use it as the final answer,
-            state["answer"] = contextualised_answer["content"]
             # Let's generate a custom event to notify it to the graph caller about the chitchat answer.
             writer = get_stream_writer()
             writer(contextualised_answer)
+            return {"answer": contextualised_answer["content"]}
 
-    return state
+        if contextualised_answer["type"] == "rewrite":
+            # If the answer is a question, we are going to use it as the new question.
+            return {"question": contextualised_answer["content"]}
+
+    # No changes to the state, if arrived here.
+    return {}
 
 
 async def contextualise_question(
@@ -285,7 +286,7 @@ async def contextualise_question(
     return answer
 
 
-async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
+async def retrieve(state: RagState, config: RunnableConfig) -> dict:
     """Retrieve the best matches from the indexed database.
 
     Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
@@ -358,11 +359,10 @@ async def retrieve(state: RagState, config: RunnableConfig) -> RagState:
     # TODO: Return only the docs which distance is below the cutoff.
     # distance_cutoff = config["configurable"]["search_distance_cutoff"]
     # return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
-    state["vector_search"] = retrieved_docs[0]
-    return state
+    return {"vector_search": retrieved_docs[0]}
 
 
-async def optimise(state: RagState, config: RunnableConfig) -> RagState:
+async def optimise(state: RagState, config: RunnableConfig) -> dict:
     """Optimise the retrieved documents to build the context for the answer.
 
     First, we'll weight the elements retrieved by "popularity" (how many times they are mentioned
@@ -371,9 +371,7 @@ async def optimise(state: RagState, config: RunnableConfig) -> RagState:
     """
     # TODO: Play with alternative strategies, we also have prev/nex, related, ...
     if not state["vector_search"]:  # No results, no context.
-        state["context"] = []
-        state["sources"] = []
-        return state
+        return {"context": [], "sources": []}
 
     assert ("configurable" in config)
     top = 5  # TODO: Make this part of the state, configurable.
@@ -423,9 +421,7 @@ async def optimise(state: RagState, config: RunnableConfig) -> RagState:
         top=top
     )
 
-    state["context"] = new_context
-    state["sources"] = new_sources
-    return state
+    return {"context": new_context, "sources": new_sources}
 
 
 def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5) -> list[list[str]]:
@@ -523,7 +519,7 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     return missing_docs
 
 
-async def generate(state: RagState, config: RunnableConfig) -> RagState | dict:
+async def generate(state: RagState, config: RunnableConfig) -> dict:
     """Generate the final answer for the question.
 
     This is the final generation step where the prompt, the chat history and the context
