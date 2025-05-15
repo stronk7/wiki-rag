@@ -51,5 +51,13 @@ AUTH_URL="http://0.0.0.0:4000/key/info"
 # LANGSMITH_ENDPOINT="https://eu.api.smith.langchain.com"
 # LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>
 
+# To enable the Langfuse tracing or prompts management. Optional.
+# LANGFUSE_TRACING="true"
+# LANGFUSE_PROMPTS="true"
+# LANGFUSE_PROMPT_PREFIX="your_prefix/"
+# LANGFUSE_HOST="https://cloud.langfuse.com"
+# LANGFUSE_SECRET_KEY="<<<YOUR_LANGFUSE_SECRET_KEY_HERE>>>"
+# LANGFUSE_PUBLIC_KEY="<<<YOUR_LANGFUSE_PUBLIC_KEY_HERE>>>"
+
 # User agent for the crawler.
 USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"

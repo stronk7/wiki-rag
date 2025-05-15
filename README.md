@@ -137,6 +137,7 @@ To get started with Wiki-RAG, ensure you have the following:
    apply thresholds to results /
    better Open AI implementation, supporting more parameters /
    better prompt management /
+   observability alternatives (langfuse, ...) /
    context-size control /
    add guardrails at different levels /
    [move configuration away from env file](https://github.com/moodlehq/wiki-rag/issues/2) /

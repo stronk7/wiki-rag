@@ -16,6 +16,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from langchain_core.runnables import RunnableConfig
+from langfuse.callback import CallbackHandler
 
 import wiki_rag.index as index
 
@@ -96,6 +97,41 @@ async def run():
             logger.error("LANGSMITH_API_KEY (required if prompts are enabled) not found in environment. Exiting.")
             sys.exit(1)
 
+    # If Langfuse tracing is enabled, verify that all required env vars are set.
+    if os.getenv("LANGFUSE_TRACING", "false") == "true":
+        if os.getenv("LANGFUSE_HOST") is None:
+            logger.error(
+                "LANGFUSE_HOST (required if tracing is enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+        if os.getenv("LANGFUSE_PUBLIC_KEY") is None:
+            logger.error(
+                "LANGFUSE_PUBLIC_KEY (required if tracing is enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+        if os.getenv("LANGFUSE_SECRET_KEY") is None:
+            logger.error(
+                "LANGFUSE_SECRET_KEY (required if tracing is enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+    # If Langfuse prompts are enabled, verify that all required env vars are set.
+    if os.getenv("LANGFUSE_PROMPTS", "false") == "true":
+        if os.getenv("LANGFUSE_HOST") is None:
+            logger.error(
+                "LANGFUSE_HOST (required if prompts are enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+        if os.getenv("LANGFUSE_PUBLIC_KEY") is None:
+            logger.error(
+                "LANGFUSE_PUBLIC_KEY (required if prompts are enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+        if os.getenv("LANGFUSE_SECRET_KEY") is None:
+            logger.error(
+                "LANGFUSE_SECRET_KEY (required if prompts are enabled) not found in environment. Exiting."
+            )
+            sys.exit(1)
+
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
         logger.info("User agent not found in environment. Using default.")
@@ -160,6 +196,13 @@ async def run():
 
     # Prepare the configuration.
     config = RunnableConfig(configurable=dict(config_schema))
+
+    # If we want to use langfuse, let's instantiate the handler here, only once
+    # (doing that in the server would create a new handler for each request and has
+    # a big impact on threads and performance).
+    if os.getenv("LANGFUSE_TRACING", "false") == "true":
+        langfuse_handler = CallbackHandler()
+        config["callbacks"] = [langfuse_handler]
 
     # display(Image((graph.get_graph().draw_mermaid_png())))
 
