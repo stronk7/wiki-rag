@@ -177,7 +177,7 @@ def get_system_prompt(
         kb_url: str = "{kb_url}",
 ) -> str:
     """Get the system prompt used for LLM generation."""
-    prompt: ChatPromptTemplate = load_prompts_for_rag("moodlehq/wiki-rag")  # Get the prompt.
+    prompt: ChatPromptTemplate = load_prompts_for_rag("wiki-rag")  # Get the prompt.
     system_prompt = [
         message.prompt
         for message in prompt.messages
@@ -200,7 +200,7 @@ def get_user_prompt(
         sources: str = "{sources}",
 ) -> str:
     """Get the user prompt used for LLM generation."""
-    prompt: ChatPromptTemplate = load_prompts_for_rag(prompt_name="moodlehq/wiki-rag")  # Get the prompt.
+    prompt: ChatPromptTemplate = load_prompts_for_rag(prompt_name="wiki-rag")  # Get the prompt.
     user_prompt = [
         message.prompt
         for message in prompt.messages

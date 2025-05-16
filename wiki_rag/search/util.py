@@ -118,9 +118,10 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
 
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
-        if os.getenv("LANGSMITH_TRACING", "false") == "true":
-            logger.debug(f"Loading the prompt {prompt_name} from LangSmith.")
-            chat_prompt = hub.pull(prompt_name)
+        if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
+            prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
+            logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
+            chat_prompt = hub.pull(prefixed_prompt_name)
         else:
             chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     except Exception as e:
@@ -174,7 +175,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     )
 
     # If we are using the wiki-rag-context-query prompt, let's update the needed pieces.
-    if prompt_name == "moodlehq/wiki-rag-context-query":
+    if prompt_name == "wiki-rag-context-query":
         system_prompt = SystemMessagePromptTemplate.from_template(
             "Given the chat history and the original question which might reference "
             "context in the chat history, rephrase and expand the original question "

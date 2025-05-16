@@ -73,9 +73,25 @@ def main():
         logger.error("Milvus URL not found in environment. Exiting.")
         sys.exit(1)
 
-    # If tracing is enabled, put a name for the project.
+    # If LangSmith tracing is enabled, put a name for the project and verify that all required env vars are set.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
         os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
+        if os.getenv("LANGSMITH_ENDPOINT") is None:
+            logger.error("LANGSMITH_ENDPOINT (required if tracing is enabled) not found in environment. Exiting.")
+            sys.exit(1)
+        if os.getenv("LANGSMITH_API_KEY") is None:
+            logger.error("LANGSMITH_API_KEY (required if tracing is enabled) not found in environment. Exiting.")
+            sys.exit(1)
+    # If LangSmith prompts are enabled, put a name for the project and verify that all required env vars are set.
+    if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
+        os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
+        os.environ["LANGSMITH_PROMPT_PREFIX"] = os.environ["LANGSMITH_PROMPT_PREFIX"] or ""
+        if os.getenv("LANGSMITH_ENDPOINT") is None:
+            logger.error("LANGSMITH_ENDPOINT (required if prompts are enabled) not found in environment. Exiting.")
+            sys.exit(1)
+        if os.getenv("LANGSMITH_API_KEY") is None:
+            logger.error("LANGSMITH_API_KEY (required if prompts are enabled) not found in environment. Exiting.")
+            sys.exit(1)
 
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
@@ -135,7 +151,7 @@ def main():
     # TODO, make prompt name, task_def, kb_*, cutoff, max tokens, temperature, top_p
     #  configurable. With defaults applied if not configured.
     config_schema = ConfigSchema(
-        prompt_name="moodlehq/wiki-rag",
+        prompt_name="wiki-rag",
         task_def="Moodle user documentation",
         kb_name="Moodle Docs",
         kb_url=mediawiki_url,

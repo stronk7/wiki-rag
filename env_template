@@ -44,8 +44,10 @@ AUTH_TOKENS="11111111,22222222,33333333"
 # Delegate bearer token auth to this URL.
 AUTH_URL="http://0.0.0.0:4000/key/info"
 
-# To enable the Langsmith tracing. Optional.
+# To enable the Langsmith tracing or prompts management. Optional.
 # LANGSMITH_TRACING="true"
+# LANGSMITH_PROMPTS="true"
+# LANGSMITH_PROMPT_PREFIX="your_prefix/"
 # LANGSMITH_ENDPOINT="https://eu.api.smith.langchain.com"
 # LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>
 
