@@ -174,7 +174,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     )
 
     # If we are using the wiki-rag-context-query prompt, let's update the needed pieces.
-    if prompt_name == "wiki-rag-context-query":
+    if prompt_name == "moodlehq/wiki-rag-context-query":
         system_prompt = SystemMessagePromptTemplate.from_template(
             "Given the chat history and the original question which might reference "
             "context in the chat history, rephrase and expand the original question "
