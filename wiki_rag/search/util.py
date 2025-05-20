@@ -20,6 +20,8 @@ from langchain_core.prompts import (
 )
 from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langfuse import Langfuse
+from langfuse.model import TextPromptClient
 from langgraph.config import get_stream_writer
 from langgraph.constants import END, START
 from langgraph.graph.state import CompiledStateGraph, StateGraph
@@ -115,21 +117,68 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     This function results are cached for 5 minutes to avoid unnecessary calls to the LangSmith API.
     """
     chat_prompt = ChatPromptTemplate([])
+    prefixed_prompt_name = prompt_name  # We'll add the prefix later, depending on the provider.
+    prompt_provider = "local"
 
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
         if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
             prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
+            prompt_provider = "LangSmith"
             chat_prompt = hub.pull(prefixed_prompt_name)
+        elif os.getenv("LANGFUSE_PROMPTS", "false") == "true":
+            langfuse = Langfuse()
+            prefixed_prompt_name = f"{os.getenv("LANGFUSE_PROMPT_PREFIX")}{prompt_name}"
+            logger.info(f"Loading the prompt {prefixed_prompt_name} from Langfuse.")
+            prompt_provider = "Langfuse"
+            langfuse_prompt = langfuse.get_prompt(prefixed_prompt_name)
+            # Convert the prompt to a LangChain compatible one.
+            chat_prompt = convert_prompts_for_rag_from_langfuse(langfuse_prompt)
+            langfuse.shutdown()
         else:
             chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     except Exception as e:
-        logger.warning(f"Error loading the prompt {prompt_name} from LangSmith: {e}. Applying default one.")
+        logger.warning(
+            f"Error loading the prompt {prefixed_prompt_name} from {prompt_provider}: {e}. Applying default one."
+        )
         chat_prompt = load_prompts_for_rag_from_local(prompt_name)
     finally:
-        logger.debug(f"Returning the prompt {prompt_name}")
+        logger.debug(f"Returning the prompt {prompt_name}: {chat_prompt}")
         return chat_prompt
+
+
+def convert_prompts_for_rag_from_langfuse(langfuse_prompt: TextPromptClient) -> ChatPromptTemplate:
+    """Convert the prompt from the Langfuse API.
+
+    We need to make this prompt truly langchain compatible, so we need to
+      - Create the system prompt template (from the first element coming from langfuse.
+      - Insert the MessagesPlaceholder for the history.
+      - Create the user message template (from the second element coming from langfuse).
+
+      We do all the above by iterating over the langfuse prompt and creating the needed
+      messages. Special attention to the {history} placeholder that is only supported by
+      LangSmith/LangChain, so we simulate it in Langfuse with a normal user message with
+      {{history}} as the content.
+    """
+    logger.debug(f"Converting Langfuse prompt {langfuse_prompt.name} to langchain format")
+
+    langchain_list = langfuse_prompt.get_langchain_prompt()
+
+    messages = []
+    for langchain in langchain_list:
+        if langchain[0] == "system":
+            messages.append(SystemMessagePromptTemplate.from_template(langchain[1]))
+        elif langchain[0] == "user":
+            if langchain[1] == "{history}":  # Special placeholder to be replaced by the history.
+                messages.append(MessagesPlaceholder("history", optional=True))
+            else:
+                messages.append(HumanMessagePromptTemplate.from_template(langchain[1]))
+        else:
+            logger.warning(f"Unknown prompt type ({langchain[0]}) detected in langfuse prompt: {langfuse_prompt.name}")
+
+    chat_prompt = ChatPromptTemplate.from_messages(messages)
+    return chat_prompt
 
 
 def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:

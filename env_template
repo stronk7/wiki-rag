@@ -41,7 +41,7 @@ MCP_API_BASE="0.0.0.0:8081"
 
 # Validate requests auth against these bearer tokens.
 AUTH_TOKENS="11111111,22222222,33333333"
-# Delegate bearer token auth to this URL.
+# Delegate bearer token auth to this URL (200 => allow)
 AUTH_URL="http://0.0.0.0:4000/key/info"
 
 # To enable the Langsmith tracing or prompts management. Optional.
@@ -54,7 +54,7 @@ AUTH_URL="http://0.0.0.0:4000/key/info"
 # To enable the Langfuse tracing or prompts management. Optional.
 # LANGFUSE_TRACING="true"
 # LANGFUSE_PROMPTS="true"
-# LANGFUSE_PROMPT_PREFIX="your_prefix/"
+# LANGFUSE_PROMPT_PREFIX="your_prefix-"
 # LANGFUSE_HOST="https://cloud.langfuse.com"
 # LANGFUSE_SECRET_KEY="<<<YOUR_LANGFUSE_SECRET_KEY_HERE>>>"
 # LANGFUSE_PUBLIC_KEY="<<<YOUR_LANGFUSE_PUBLIC_KEY_HERE>>>"

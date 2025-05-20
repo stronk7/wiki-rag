@@ -127,6 +127,7 @@ To get started with Wiki-RAG, ensure you have the following:
    include/exclude lists /
    compare results with different embeddings /
    fine tune the embedding /
+   support adding a watermark text to the responses /
    consider adding summaries, multiple levels and more metadata /
    [able to use other vector databases](https://github.com/moodlehq/wiki-rag/issues/3) /
    add other algos, apart from current POP and POC /
