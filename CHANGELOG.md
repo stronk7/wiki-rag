@@ -6,6 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.9.0] - 2025-05-20
+
+### Added
+
+- Prompts: Split langsmith tracing and prompts management by @stronk7 ([4397a86](https://github.com/moodlehq/wiki-rag/commit/4397a864ee35508fa2a06c59544860867fa03895))
+- Langfuse: Add Langfuse observability support by @stronk7 ([2f1be65](https://github.com/moodlehq/wiki-rag/commit/2f1be65900255d837bb8d4bf913a4a557cd2f404))
+- Langfuse: Add Langfuse prompt management support by @stronk7 ([2d6127f](https://github.com/moodlehq/wiki-rag/commit/2d6127f308fa7da21908f94818108cde59e39076))
+
+### Changed
+
+- Update docs to show latest changes by @stronk7 ([66d5c2c](https://github.com/moodlehq/wiki-rag/commit/66d5c2c0a42f3aa465ea70d067af74c0aa502984))
+
+### Fixed
+
+- Search: Fix a problem with the `wr-search --stream` command by @stronk7 ([962e59f](https://github.com/moodlehq/wiki-rag/commit/962e59f344613c88ecb882fa024b358256185383))
+- CI: Initial unit tests and associated configuration by @stronk7 ([fed640b](https://github.com/moodlehq/wiki-rag/commit/fed640b1255dd0326963753990b098b7405c523d))
+- Langgraph: Small fixes to state management by @stronk7 ([59f1d4f](https://github.com/moodlehq/wiki-rag/commit/59f1d4f6d9d7c570ec71359577bd7eb0b261ebd5))
+- Milvus: Downgrade to pymilvus 2.5.6 by @stronk7 ([6081eb8](https://github.com/moodlehq/wiki-rag/commit/6081eb8f3eb0816b5fb9c04fda8760746995c86e))
+- Prompts: Fix local context-query prompt by @stronk7 ([0c474ef](https://github.com/moodlehq/wiki-rag/commit/0c474ef83570e859ba0b7a4e3b283755b469d5ec))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.8.0...v0.9.0
+
 ## [0.8.0] - 2025-05-13
 
 ### Added
@@ -287,6 +309,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
+[0.9.0]: https://github.com/moodlehq/wiki-rag/compare/v0.8.0..v0.9.0
 [0.8.0]: https://github.com/moodlehq/wiki-rag/compare/v0.7.1..v0.8.0
 [0.7.1]: https://github.com/moodlehq/wiki-rag/compare/v0.7.0..v0.7.1
 [0.7.0]: https://github.com/moodlehq/wiki-rag/compare/v0.6.2..v0.7.0

@@ -116,15 +116,37 @@ To get started with Wiki-RAG, ensure you have the following:
 
 ## Features
 
-   _Coming soon..._
+   * Accepts virtually any Mediawiki site as a knowledge base (KB).
+   * Uses Mediawiki API to extract content and metadata (not web crawling).
+   * Supports multiple namespaces and page exclusions.
+   * The whole KB is stored in a (dated) JSON file for later use, access and analysis.
+   * Metadata-rich information containing parent-ship relations, sources and other useful information.
+   * Loads the KB into a vector database (Milvus) for fast retrieval.
+   * Hybrid retrieval using both vector and keyword search with fusion reranking.
+   * Contextual-aware query rewrite for a better chat experience.
+   * Support for chit-chatting cases, avoiding out-of-scope questions (limited but effective).
+   * Performs post-retrieval optimizations to improve the quality of the retrieved documents:
+       * POP (popularity): In charge of boosting the most popular chunks.
+       * POC (parent, own and child): Add those related chunks to the retrieved ones.
+   * Many configuration options:
+       * Models to use for embeddings, query rewrite and answers generation (any OpenAI compatible provider).
+       * Size (in messages count and tokens length) to use as history.
+       * Other settings (embed dimensions, chunk size, etc.)
+   * Supports (opt-in) observability (tracing) with both LangSmith and Langfuse.
+   * Prompts management (also opt-in) with LangSmith and Langfuse. Defaults apply otherwise.
+   * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Optionally protected with local or remote bearer tokens.
+   * Exposed as a (unprotected!) MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools).
+   * Plenty of ideas for future work and improvements (see next section).
 
 ## Future Work
 
-   Support partial/incremental loading /
+   support partial/incremental loading /
+   process multiple mediawiki sites /
+   process other sites (docusaurus, ...) /
    more granular splits /
    loaders to become plugins /
    [use markdown as "backend format"](https://github.com/moodlehq/wiki-rag/issues/5) /
-   include/exclude lists /
+   ~~[include/exclude lists](https://github.com/moodlehq/wiki-rag/commit/454d2bc244dfd933589239413589c73437f0f4d9)~~ /
    compare results with different embeddings /
    fine tune the embedding /
    support adding a watermark text to the responses /
@@ -137,12 +159,11 @@ To get started with Wiki-RAG, ensure you have the following:
    prepare an evaluation collection /
    apply thresholds to results /
    better Open AI implementation, supporting more parameters /
-   better prompt management /
-   observability alternatives (langfuse, ...) /
+   ~~[better prompt management](https://github.com/moodlehq/wiki-rag/commit/2d6127f308fa7da21908f94818108cde59e39076)~~ /
+   ~~[observability alternatives (langfuse, ...)](https://github.com/moodlehq/wiki-rag/commit/2f1be65900255d837bb8d4bf913a4a557cd2f404)~~ /
    context-size control /
    add guardrails at different levels /
    [move configuration away from env file](https://github.com/moodlehq/wiki-rag/issues/2) /
-   provide access to the rag from moodlebot /
    better fit in multi-agentic environments /
    detect out of scope questions better /
    semantic routing /
