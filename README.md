@@ -134,13 +134,15 @@ To get started with Wiki-RAG, ensure you have the following:
        * Other settings (embed dimensions, chunk size, etc.)
    * Supports (opt-in) observability (tracing) with both LangSmith and Langfuse.
    * Prompts management (also opt-in) with LangSmith and Langfuse. Defaults apply otherwise.
-   * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Optionally protected with local or remote bearer tokens.
+   * Uses LangGraph for orchestration of the whole LLM pipeline.
+   * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Optionally protected with local or remote bearer tokens. Supports streaming responses.
    * Exposed as a (unprotected!) MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools).
    * Plenty of ideas for future work and improvements (see next section).
 
 ## Future Work
 
    support partial/incremental loading /
+   support partial/incremental indexing /
    process multiple mediawiki sites /
    process other sites (docusaurus, ...) /
    more granular splits /

@@ -26,23 +26,23 @@ dynamic = ["version"]
 
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp == 3.11.18",
-    "cachetools == 5.5.2",
+    "aiohttp == 3.12.14",
+    "cachetools == 6.1.0",
     "colorlog == 6.9.0",
     "fastapi == 0.115.12",
-    "langchain == 0.3.25",
-    "langchain-community == 0.3.24",
-    "langchain-core == 0.3.59",
-    "langchain-openai == 0.3.16",
-    "langfuse == 2.60.5",
-    "langgraph == 0.4.3",
-    "langsmith == 0.3.42",
-    "mcp[cli] == 1.8.1",
+    "langchain == 0.3.26",
+    "langchain-community == 0.3.27",
+    "langchain-core == 0.3.70",
+    "langchain-openai == 0.3.28",
+    "langfuse == 2.60.9",
+    "langgraph == 0.5.4",
+    "langsmith == 0.4.8",
+    "mcp[cli] == 1.12.0",
     "pymilvus == 2.5.6",  # Cannot use 2.5.7 or up till https://github.com/milvus-io/pymilvus/issues/2794 is fixed.
-    "python-dotenv == 1.1.0",
+    "python-dotenv == 1.1.1",
     "tiktoken == 0.9.0",
     "tqdm == 4.67.1",
-    "uvicorn == 0.34.2",
+    "uvicorn == 0.35.0",
 ]
 
 [project.optional-dependencies]
@@ -50,12 +50,12 @@ dev = [
     "build == 1.2.2.post1",
     "codespell == 2.4.1",
     "conventional-pre-commit == 4.2.0",
-    "coverage == 7.8.0",
+    "coverage == 7.9.2",
     "detect-secrets == 1.5.0",
-    "git-cliff == 2.8.0",
+    "git-cliff == 2.9.1",
     "pre-commit == 4.2.0",
-    "pyright == 1.1.400",
-    "ruff == 0.11.9",
+    "pyright == 1.1.403",
+    "ruff == 0.12.4",
 ]
 
 [project.scripts]
