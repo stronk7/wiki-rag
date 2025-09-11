@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- Dependencies: Bump dependencies, most noticeably Langfuse 3.x ([edba490](https://github.com/moodlehq/wiki-rag/commit/edba4903e4ecff9d6713c696559ae0facc7ff732))
 ## [0.9.1] - 2025-08-25
 
 ### Changed
@@ -321,6 +326,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
+[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..HEAD
 [0.9.1]: https://github.com/moodlehq/wiki-rag/compare/v0.9.0..v0.9.1
 [0.9.0]: https://github.com/moodlehq/wiki-rag/compare/v0.8.0..v0.9.0
 [0.8.0]: https://github.com/moodlehq/wiki-rag/compare/v0.7.1..v0.8.0

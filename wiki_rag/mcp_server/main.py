@@ -11,7 +11,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.runnables import RunnableConfig
-from langfuse.callback import CallbackHandler
+from langfuse.langchain import CallbackHandler
 
 import wiki_rag.index as index
 import wiki_rag.mcp_server as mcp_global
