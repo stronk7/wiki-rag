@@ -5,13 +5,13 @@
 
 import logging
 
+from fastmcp import FastMCP
 from langchain_core.prompts import (
     ChatPromptTemplate,
     HumanMessagePromptTemplate,
     PromptTemplate,
     SystemMessagePromptTemplate,
 )
-from mcp.server.fastmcp import FastMCP
 
 import wiki_rag.mcp_server as mcp_global
 
@@ -92,7 +92,7 @@ async def optimise(messages: list[Message]) -> dict[str, list[str]]:
 
 
 @mcp.tool()
-async def generate(messages: list[Message]) -> str:
+async def generate(messages: list[Message]) -> dict[str, str]:
     """Get the LLM generated answer after retrieving and optimising."""
     assert server.context is not None
 
@@ -118,7 +118,7 @@ async def generate(messages: list[Message]) -> str:
         question=question, history=history, context=server.context
     )
     logger.debug(f"Response: {response}")
-    return response["answer"]
+    return {"result": response["answer"]}
 
 
 # Add a resource that returns the first 10 parsed pages.

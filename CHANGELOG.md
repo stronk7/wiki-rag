@@ -10,7 +10,12 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Added
 
-- Dependencies: Bump dependencies, most noticeably Langfuse 3.x ([edba490](https://github.com/moodlehq/wiki-rag/commit/edba4903e4ecff9d6713c696559ae0facc7ff732))
+- Langgraph: Switch to new contexts vs previous configs ([4d1971d](https://github.com/moodlehq/wiki-rag/commit/4d1971d2d83459922f1d1024ff4d7d6ce54210a1))
+
+### Changed
+
+- Dependencies: Bump dependencies, most noticeably Langfuse 3.x ([3a4f19e](https://github.com/moodlehq/wiki-rag/commit/3a4f19e400418b01c67ba00c14e16642466ac94b))
+- MCP: Move from MCP official library to FastMCP v2 ([250866b](https://github.com/moodlehq/wiki-rag/commit/250866b5ff5ce2dcccce46a7f67fd4428c2e9a48))
 ## [0.9.1] - 2025-08-25
 
 ### Changed
