@@ -15,13 +15,12 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
-from langchain_core.runnables import RunnableConfig
 from langfuse.langchain import CallbackHandler
 
 import wiki_rag.index as index
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
-from wiki_rag.search.util import ConfigSchema, build_graph
+from wiki_rag.search.util import ContextSchema, build_graph
 from wiki_rag.util import setup_logging
 
 
@@ -168,13 +167,10 @@ async def run():
     stream = args.stream if args.stream else False
     logger.debug(f'Question: "{question}"')
 
-    logger.info("Building the graph")
-    graph = build_graph()
-
     # Prepare the configuration schema.
     # TODO, make prompt name, task_def, kb_*, cutoff, max tokens, temperature, top_p
     #  configurable. With defaults applied if not configured.
-    config_schema = ConfigSchema(
+    context = ContextSchema(
         prompt_name="wiki-rag",
         task_def="Moodle user documentation",
         kb_name="Moodle Docs",
@@ -192,32 +188,36 @@ async def run():
         wrapper_chat_max_turns=0,
         wrapper_chat_max_tokens=0,
         wrapper_model_name=llm_model,
-    ).items()
-
-    # Prepare the configuration.
-    config = RunnableConfig(configurable=dict(config_schema))
+        langfuse_callback=None
+    )
 
     # If we want to use langfuse, let's instantiate the handler here, only once
     # (doing that in the server would create a new handler for each request and has
     # a big impact on threads and performance).
     if os.getenv("LANGFUSE_TRACING", "false") == "true":
-        langfuse_handler = CallbackHandler()
-        config["callbacks"] = [langfuse_handler]
+        context["langfuse_callback"] = CallbackHandler()
+
+    logger.info("Building the graph")
+    graph = build_graph(context)
 
     # display(Image((graph.get_graph().draw_mermaid_png())))
 
     # And, finally, run a search.
     if not stream:
         logger.info("Running the search (non-streaming)")
-        response = await graph.ainvoke({"question": question, "history": []}, config=config)
+        response = await graph.ainvoke(
+            input={"question": question, "history": []},
+            context=context  # pyright: ignore[reportArgumentType]. This is correct, but defined as None somewhere.
+        )
         print(f"\033[93m{response["answer"]}\033[0m", end="")
     else:
         logger.info("Running the search (streaming)")
         # TODO: Encapsulate this, it's duplicated in the server.
         async for mode, info in graph.astream(
-                {"question": question, "history": []},
-                config=config,
-                stream_mode=["custom", "messages"]):
+            input={"question": question, "history": []},
+            context=context,  # pyright: ignore[reportArgumentType]. This is correct, but defined as None somewhere.
+            stream_mode=["custom", "messages"],
+        ):
             # See if the streamed event needs to be considered.
             process_event = False
             content = ""

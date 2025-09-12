@@ -18,13 +18,14 @@ from langchain_core.prompts import (
     MessagesPlaceholder,
     SystemMessagePromptTemplate,
 )
-from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langfuse import Langfuse
+from langfuse.langchain import CallbackHandler
 from langfuse.model import TextPromptClient
 from langgraph.config import get_stream_writer
-from langgraph.constants import END, START
-from langgraph.graph.state import CompiledStateGraph, StateGraph
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.runtime import Runtime
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
 import wiki_rag.index as index
@@ -34,8 +35,8 @@ from wiki_rag import LOG_LEVEL
 logger = logging.getLogger(__name__)
 
 
-class ConfigSchema(TypedDict):
-    """Define the configuration that the graph will use.
+class ContextSchema(TypedDict):
+    """Define the context (immutable properties) that the graph will use.
 
     Used to validate the configuration passed to the RunnableConfig of the graph.
     """
@@ -57,6 +58,7 @@ class ConfigSchema(TypedDict):
     wrapper_chat_max_turns: int
     wrapper_chat_max_tokens: int
     wrapper_model_name: str
+    langfuse_callback: CallbackHandler | None
 
 
 class RagState(TypedDict):
@@ -77,9 +79,9 @@ class ContextualisedAnswer(TypedDict):
     content: Annotated[str, ..., "The answer, that can be a question or some chitchat text"]
 
 
-def build_graph() -> CompiledStateGraph:
+def build_graph(context: ContextSchema) -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
-    graph_builder = StateGraph(RagState, ConfigSchema)
+    graph_builder = StateGraph(RagState, ContextSchema)
     graph_builder.add_node(query_rewrite)
     graph_builder.add_sequence([
         retrieve,
@@ -92,17 +94,18 @@ def build_graph() -> CompiledStateGraph:
     })
 
     graph_builder.add_edge(START, "query_rewrite")
-    graph = graph_builder.compile()
+    graph: CompiledStateGraph = graph_builder.compile().with_config(
+        {"callbacks": [context["langfuse_callback"]]} if context["langfuse_callback"] else None
+    )   # pyright: ignore[reportAssignmentType]. Note this is correct, but for some reason, pyright is not able.
+
     return graph
 
 
-def retrieve_or_chitchat(state: RagState, config: RunnableConfig) -> Literal["retrieve", "chitchat"]:
+def retrieve_or_chitchat(state: RagState) -> Literal["retrieve", "chitchat"]:
     """Check if the answer is a chitchat or a rewrite.
 
     This is used to decide if we need to continue with the search or not.
     """
-    assert "configurable" in config
-
     # If the answer has already being set, we are done (probably a chitchat).
     if "answer" in state:
         return "chitchat"
@@ -152,7 +155,7 @@ def convert_prompts_for_rag_from_langfuse(langfuse_prompt: TextPromptClient) -> 
     """Convert the prompt from the Langfuse API.
 
     We need to make this prompt truly langchain compatible, so we need to
-      - Create the system prompt template (from the first element coming from langfuse.
+      - Create the system prompt template (from the first element coming from langfuse).
       - Insert the MessagesPlaceholder for the history.
       - Create the user message template (from the second element coming from langfuse).
 
@@ -257,7 +260,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
     return chat_prompt
 
 
-async def query_rewrite(state: RagState, config: RunnableConfig) -> dict:
+async def query_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Rewrite the question using the query rewrite model.
 
     This is a simple query rewrite model that will be used to rewrite the question
@@ -270,18 +273,16 @@ async def query_rewrite(state: RagState, config: RunnableConfig) -> dict:
     In the case of a chitchat, the answer will be used as the final answer, otherwise
     the question will be rewritten (made context-aware) and used for the search.
     """
-    assert "configurable" in config
-
-    if config["configurable"]["contextualisation_model"]:
+    if runtime.context["contextualisation_model"]:
         contextualise_prompt = load_prompts_for_rag(
-            f"{config['configurable']['prompt_name']}-context-query"
+            f"{runtime.context['prompt_name']}-context-query"
         )
 
         contextualised_answer = await contextualise_question(
             prompt=contextualise_prompt,
             question=state["question"],
             history=state["history"],
-            model=config["configurable"]["contextualisation_model"],
+            model=runtime.context["contextualisation_model"],
         )
 
         if contextualised_answer["type"] == "chitchat":
@@ -336,20 +337,18 @@ async def contextualise_question(
     return answer
 
 
-async def retrieve(state: RagState, config: RunnableConfig) -> dict:
+async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Retrieve the best matches from the indexed database.
 
     Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
     and a BM25 search (sparse, full text). And then will rerank results with the weighted
     reranker.
     """
-    assert "configurable" in config
-
     # Note that here we are using the Milvus own library instead of the LangChain one because
     # the LangChain one doesn't support many of the features used here.
     embeddings = OpenAIEmbeddings(
-        model=config["configurable"]["embedding_model"],
-        dimensions=config["configurable"]["embedding_dimension"]
+        model=runtime.context["embedding_model"],
+        dimensions=runtime.context["embedding_dimension"]
     )
     query_embedding = embeddings.embed_query(state["question"])
 
@@ -384,7 +383,7 @@ async def retrieve(state: RagState, config: RunnableConfig) -> dict:
 
     # Perform the hybrid search.
     retrieved_docs = milvus.hybrid_search(
-        config["configurable"]["collection_name"],
+        runtime.context["collection_name"],
         [dense_search, sparse_search],
         WeightedRanker(*rerank_weights),
         limit=hybrid_rerank_limit,
@@ -412,7 +411,7 @@ async def retrieve(state: RagState, config: RunnableConfig) -> dict:
     return {"vector_search": retrieved_docs[0]}
 
 
-async def optimise(state: RagState, config: RunnableConfig) -> dict:
+async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Optimise the retrieved documents to build the context for the answer.
 
     First, we'll weight the elements retrieved by "popularity" (how many times they are mentioned
@@ -423,7 +422,6 @@ async def optimise(state: RagState, config: RunnableConfig) -> dict:
     if not state["vector_search"]:  # No results, no context.
         return {"context": [], "sources": []}
 
-    assert ("configurable" in config)
     top = 5  # TODO: Make this part of the state, configurable.
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
     # making a dictionary with the counts. They will be weighted differently, following this order:
@@ -467,7 +465,7 @@ async def optimise(state: RagState, config: RunnableConfig) -> dict:
     new_context, new_sources = build_poc_context(
         retrieved_docs=state["vector_search"],
         sorted_items=sorted_items,
-        collection_name=config["configurable"]["collection_name"],
+        collection_name=runtime.context["collection_name"],
         top=top
     )
 
@@ -569,36 +567,34 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     return missing_docs
 
 
-async def generate(state: RagState, config: RunnableConfig) -> dict:
+async def generate(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Generate the final answer for the question.
 
     This is the final generation step where the prompt, the chat history and the context
     are used to generate the final answer.
     """
-    assert "configurable" in config
-
     # Let's make the generation LLM call normally.
     llm = ChatOpenAI(
-        model=config["configurable"]["llm_model"],
-        max_completion_tokens=config["configurable"]["max_completion_tokens"],
-        top_p=config["configurable"]["top_p"],
-        temperature=config["configurable"]["temperature"],
+        model=runtime.context["llm_model"],
+        max_completion_tokens=runtime.context["max_completion_tokens"],
+        top_p=runtime.context["top_p"],
+        temperature=runtime.context["temperature"],
     )
 
     docs_content = "\n\n".join(f"{doc}" for doc in state["context"])
     sources_content = "\n".join(f"* {source}" for source in state["sources"])
 
-    chat_prompt = load_prompts_for_rag(config["configurable"]["prompt_name"])
+    chat_prompt = load_prompts_for_rag(runtime.context["prompt_name"])
     chat = await chat_prompt.ainvoke({
-        "task_def": config["configurable"]["task_def"],
-        "kb_name": config["configurable"]["kb_name"],
-        "kb_url": config["configurable"]["kb_url"],
+        "task_def": runtime.context["task_def"],
+        "kb_name": runtime.context["kb_name"],
+        "kb_url": runtime.context["kb_url"],
         "context": docs_content,
         "sources": sources_content,
         "question": state["question"],
         "history": state["history"]
     })
 
-    response = await llm.ainvoke(chat, config)
+    response = await llm.ainvoke(chat)
 
     return {"answer": response.content}

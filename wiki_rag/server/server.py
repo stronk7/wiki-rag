@@ -13,9 +13,9 @@ from typing import Any
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import AIMessageChunk, BaseMessage
-from langchain_core.runnables import RunnableConfig
 
 from wiki_rag import __version__, server
+from wiki_rag.search.util import ContextSchema
 from wiki_rag.server.util import (
     ChatCompletionRequest,
     ChatCompletionResponse,
@@ -80,15 +80,15 @@ app = FastAPI(
 )
 async def models_list() -> ModelsListResponse:
     """List the models available in the API."""
-    assert server.config is not None and "configurable" in server.config
+    assert server.context is not None
     return ModelsListResponse(
         object="list",
         data=[
             ModelResponse(
-                id=server.config["configurable"]["wrapper_model_name"],
+                id=server.context["wrapper_model_name"],
                 object="model",
                 created=int(time.time()),
-                owned_by=server.config["configurable"]["kb_name"],
+                owned_by=server.context["kb_name"],
             )
         ]
     )
@@ -107,7 +107,7 @@ async def models_list() -> ModelsListResponse:
 )
 async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResponse | StreamingResponse:
     """Generate chat completions based on the given messages and model."""
-    assert server.config is not None and "configurable" in server.config
+    assert server.context is not None
     assert server.graph is not None
 
     if not request.messages:
@@ -116,23 +116,27 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
     if not request.model:
         raise HTTPException(status_code=400, detail="No model provided.")
 
-    if request.model != server.config["configurable"]["wrapper_model_name"]:
+    if request.model != server.context["wrapper_model_name"]:
         raise HTTPException(status_code=400, detail="Model not supported.")
 
     logger.debug(f"Request: {request}")
 
     # Update the configuration with the values coming from the request.
     # TODO, Apply defaults applied if not configured.
-    server.config["configurable"]["temperature"] = request.temperature
-    server.config["configurable"]["top_p"] = request.top_p
-    server.config["configurable"]["max_completion_tokens"] = request.max_completion_tokens or request.max_tokens
-    server.config["configurable"]["stream"] = request.stream or False
+    server.context["temperature"] = request.temperature \
+        if request.temperature is not None else server.context["temperature"]
+    server.context["top_p"] = request.top_p \
+        if request.top_p is not None else server.context["top_p"]
+    completion_tokes = request.max_completion_tokens or request.max_tokens
+    server.context["max_completion_tokens"] = completion_tokes \
+        if completion_tokes is not None else server.context["max_completion_tokens"]
+    server.context["stream"] = request.stream or False
 
     # Filter the messages to ensure they don't exceed the maximum number of turns and tokens.
     history = filter_completions_history(
         request.messages,
-        max_turns_allowed=server.config["configurable"]["wrapper_chat_max_turns"],
-        max_tokens_allowed=server.config["configurable"]["wrapper_chat_max_tokens"],
+        max_turns_allowed=server.context["wrapper_chat_max_turns"],
+        max_tokens_allowed=server.context["wrapper_chat_max_tokens"],
         remove_system_messages=True
     )
 
@@ -142,12 +146,12 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
     # Convert the messages to the format expected by langgraph.
     history = convert_from_openai_to_langchain(history)
 
-    logger.debug(f"Configuration: {server.config['configurable']}")
+    logger.debug(f"Configuration: {server.context}")
     logger.debug(f"Filtered history: {history}")
     logger.debug(f"Question: {question}")
 
     # Run the search.
-    if server.config["configurable"]["stream"]:
+    if server.context["stream"]:
         logger.info("Running the search (streaming)")
 
         async def open_ai_langgraph_stream(question: str, history: list[BaseMessage]):
@@ -157,7 +161,7 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
             # TODO: Encapsulate this, it's duplicated in the search.
             async for mode, info in server.graph.astream(
                     {"question": question, "history": history},
-                    config=server.config,
+                    context=server.context,  # pyright: ignore[reportArgumentType]. This is correct, but defined as None somewhere.
                     stream_mode=["custom", "messages"]
             ):
                 # See if the streamed event needs to be considered.
@@ -212,7 +216,7 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
         completion = await invoke_graph(
             question=question,
             history=history,
-            config=server.config,
+            context=server.context,
         )
 
         return ChatCompletionResponse(
@@ -232,11 +236,11 @@ async def chat_completions(request: ChatCompletionRequest) -> ChatCompletionResp
 async def invoke_graph(
     question: str,
     history: list[BaseMessage],
-    config: RunnableConfig,
+    context: ContextSchema,
 ) -> Any:
     """Invoke the graph with the given question, history and configuration. No streaming."""
     assert server.graph is not None
     return await server.graph.ainvoke(
-        {"question": question, "history": history},
-        config=config
+        input={"question": question, "history": history},
+        context=context  # pyright: ignore[reportArgumentType]. This is correct, but defined as None somewhere.
     )

@@ -32,9 +32,9 @@ mcp = FastMCP("Wiki-RAG MCP Server")
 
 
 @mcp.tool()
-async def retrieve(messages: list[Message]) -> dict[str, list[str]]:
+async def retrieve(messages: list[Message]) -> dict[str, list[dict]]:
     """Get the raw results from the database."""
-    assert server.config is not None and "configurable" in server.config
+    assert server.context is not None
 
     # Extract the last message, our new question, out from history.
     question = messages.pop()["content"]
@@ -43,24 +43,33 @@ async def retrieve(messages: list[Message]) -> dict[str, list[str]]:
     history = convert_from_openai_to_langchain(messages)
 
     logger.info("Building the retrieve graph")
-    server.graph = build_retrieve_graph()
+    server.graph = build_retrieve_graph(server.context)
 
     logger.info("Running retrieve (non-streaming)")
     response = await invoke_graph(
         question=question,
         history=history,
-        config=server.config
+        context=server.context
     )
     logger.debug(f"Response: {response}")
     return {
-        "vector_search": response["vector_search"]
+        "vector_search": [
+            {
+                "distance": doc["distance"],
+                "doc_id": doc["entity"]["doc_id"],
+                "page_id": doc["entity"]["page_id"],
+                "title": doc["entity"]["title"],
+                "text": doc["entity"]["text"],
+                "source": doc["entity"]["source"],
+            } for doc in response["vector_search"]
+        ],
     }
 
 
 @mcp.tool()
 async def optimise(messages: list[Message]) -> dict[str, list[str]]:
     """Get the optimised results from the retrieved ones."""
-    assert server.config is not None and "configurable" in server.config
+    assert server.context is not None
 
     # Extract the last message, our new question, out from history.
     question = messages.pop()["content"]
@@ -69,11 +78,11 @@ async def optimise(messages: list[Message]) -> dict[str, list[str]]:
     history = convert_from_openai_to_langchain(messages)
 
     logger.info("Building the optimise graph")
-    server.graph = build_optimise_graph()
+    server.graph = build_optimise_graph(server.context)
 
     logger.info("Running optimise (non-streaming)")
     response = await invoke_graph(
-        question=question, history=history, config=server.config
+        question=question, history=history, context=server.context
     )
     logger.debug(f"Response: {response}")
     return {
@@ -85,13 +94,13 @@ async def optimise(messages: list[Message]) -> dict[str, list[str]]:
 @mcp.tool()
 async def generate(messages: list[Message]) -> str:
     """Get the LLM generated answer after retrieving and optimising."""
-    assert server.config is not None and "configurable" in server.config
+    assert server.context is not None
 
     # Filter the messages to ensure they don't exceed the maximum number of turns and tokens.
     history = filter_completions_history(
         messages,
-        max_turns_allowed=server.config["configurable"]["wrapper_chat_max_turns"],
-        max_tokens_allowed=server.config["configurable"]["wrapper_chat_max_tokens"],
+        max_turns_allowed=server.context["wrapper_chat_max_turns"],
+        max_tokens_allowed=server.context["wrapper_chat_max_tokens"],
         remove_system_messages=True,
     )
 
@@ -102,11 +111,11 @@ async def generate(messages: list[Message]) -> str:
     history = convert_from_openai_to_langchain(history)
 
     logger.info("Building the generate complete graph")
-    server.graph = build_graph()
+    server.graph = build_graph(server.context)
 
     logger.info("Running generate (non-streaming)")
     response = await invoke_graph(
-        question=question, history=history, config=server.config
+        question=question, history=history, context=server.context
     )
     logger.debug(f"Response: {response}")
     return response["answer"]

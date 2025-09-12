@@ -10,14 +10,13 @@ import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
-from langchain_core.runnables import RunnableConfig
 from langfuse.langchain import CallbackHandler
 
 import wiki_rag.index as index
 import wiki_rag.mcp_server as mcp_global
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
-from wiki_rag.search.util import ConfigSchema
+from wiki_rag.search.util import ContextSchema
 from wiki_rag.util import setup_logging
 
 
@@ -186,7 +185,7 @@ def main():
     # Prepare the configuration schema.
     # TODO, make prompt name, task_def, kb_*, cutoff, max tokens, temperature, top_p
     #  configurable. With defaults applied if not configured.
-    config_schema = ConfigSchema(
+    server.context = ContextSchema(
         prompt_name="wiki-rag",
         task_def="Moodle user documentation",
         kb_name="Moodle Docs",
@@ -204,17 +203,16 @@ def main():
         wrapper_chat_max_turns=wrapper_chat_max_turns,
         wrapper_chat_max_tokens=wrapper_chat_max_tokens,
         wrapper_model_name=wrapper_model_name,
-    ).items()
+        langfuse_callback=None
+    )
 
     # Prepare the configuration.
-    server.config = RunnableConfig(configurable=dict(config_schema))
 
     # If we want to use langfuse, let's instantiate the handler here, only once
     # (doing that in the server would create a new handler for each request and has
     # a big impact on threads and performance).
     if os.getenv("LANGFUSE_TRACING", "false") == "true":
-        langfuse_handler = CallbackHandler()
-        server.config["callbacks"] = [langfuse_handler]
+        server.context["langfuse_callback"] = CallbackHandler()
 
     # Start the mcp_server server
     from wiki_rag.mcp_server.server import mcp

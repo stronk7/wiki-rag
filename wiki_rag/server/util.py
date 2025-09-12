@@ -24,8 +24,7 @@ from wiki_rag import LOG_LEVEL, server
 
 logger = logging.getLogger(__name__)
 
-assert server.config is not None, "The configuration must be set before using this module."
-assert "configurable" in server.config, "The configuration must have a 'configurable' key."
+assert server.context is not None, "The configuration must be set before using this module."
 
 
 class Message(TypedDict):
@@ -42,7 +41,7 @@ class ChatCompletionRequest(BaseModel):
     max_completion_tokens: int | None = 960  # Max tokens to generate (not all models support this).
     temperature: float | None = 0.05  # Temperature for sampling (0.0, deterministic to 2.0, creative).
     top_p: float | None = 0.85  # Which probability (0.0 - 1.0) is used to consider the next token (0.85 default).
-    model: str = server.config["configurable"]["wrapper_model_name"]
+    model: str = server.context["wrapper_model_name"]
     messages: list[Message] = [Message(role="user", content="Hello!")]
     stream: bool | None = False
 
@@ -60,17 +59,17 @@ class ChatCompletionResponse(BaseModel):
     id: UUID4 = uuid.uuid4()
     object: str = "chat.completion"
     created: int = int(time.time())
-    model: str = server.config["configurable"]["wrapper_model_name"]
+    model: str = server.context["wrapper_model_name"]
     choices: list[ChoiceResponse] = [ChoiceResponse()]
 
 
 class ModelResponse(BaseModel):
     """Information about a LLM model."""
 
-    id: str = server.config["configurable"]["wrapper_model_name"]
+    id: str = server.context["wrapper_model_name"]
     object: str = "model"
     created: int = int(time.time())
-    owned_by: str = server.config["configurable"]["kb_name"]
+    owned_by: str = server.context["kb_name"]
 
 
 class ModelsListResponse(BaseModel):

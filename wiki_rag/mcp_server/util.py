@@ -5,31 +5,36 @@
 
 import logging
 
-from langgraph.constants import START
-from langgraph.graph import StateGraph
+from langgraph.graph import START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
-from wiki_rag.search.util import ConfigSchema, RagState, optimise, retrieve
+from wiki_rag.search.util import ContextSchema, RagState, optimise, retrieve
 
 logger = logging.getLogger(__name__)
 
 
-def build_retrieve_graph() -> CompiledStateGraph:
+def build_retrieve_graph(context: ContextSchema) -> CompiledStateGraph:
     """Build the retrieve only graph for the retrieve MCP tool."""
-    graph_builder = StateGraph(RagState, ConfigSchema).add_sequence([
+    graph_builder = StateGraph(RagState, ContextSchema).add_sequence([
         retrieve,
     ])
     graph_builder.add_edge(START, "retrieve")
-    graph = graph_builder.compile()
+    graph: CompiledStateGraph = graph_builder.compile().with_config(
+        {"callbacks": [context["langfuse_callback"]]} if context["langfuse_callback"] else None
+    )   # pyright: ignore[reportAssignmentType]. Note this is correct, but for some reason, pyright is not able.
+
     return graph
 
 
-def build_optimise_graph() -> CompiledStateGraph:
+def build_optimise_graph(context: ContextSchema) -> CompiledStateGraph:
     """Build the retrieve and optimise graph for the optimise MCP tool."""
-    graph_builder = StateGraph(RagState, ConfigSchema).add_sequence([
+    graph_builder = StateGraph(RagState, ContextSchema).add_sequence([
         retrieve,
         optimise,
     ])
     graph_builder.add_edge(START, "retrieve")
-    graph = graph_builder.compile()
+    graph: CompiledStateGraph = graph_builder.compile().with_config(
+        {"callbacks": [context["langfuse_callback"]]} if context["langfuse_callback"] else None
+    )   # pyright: ignore[reportAssignmentType]. Note this is correct, but for some reason, pyright is not able.
+
     return graph
