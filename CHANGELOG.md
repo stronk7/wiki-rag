@@ -6,16 +6,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.10.0] - 2025-09-13
 
 ### Added
 
-- Langgraph: Switch to new contexts vs previous configs ([4d1971d](https://github.com/moodlehq/wiki-rag/commit/4d1971d2d83459922f1d1024ff4d7d6ce54210a1))
+- Langgraph: Switch to new contexts vs previous configs by @stronk7 ([4d1971d](https://github.com/moodlehq/wiki-rag/commit/4d1971d2d83459922f1d1024ff4d7d6ce54210a1))
+- Loader: Add option to control rate limiting by @yusufozgur ([56eabcf](https://github.com/moodlehq/wiki-rag/commit/56eabcf2e69142a31ad3b146ef00d3bd9bb1471a))
 
 ### Changed
 
-- Dependencies: Bump dependencies, most noticeably Langfuse 3.x ([3a4f19e](https://github.com/moodlehq/wiki-rag/commit/3a4f19e400418b01c67ba00c14e16642466ac94b))
-- MCP: Move from MCP official library to FastMCP v2 ([250866b](https://github.com/moodlehq/wiki-rag/commit/250866b5ff5ce2dcccce46a7f67fd4428c2e9a48))
+- Dependencies: Bump dependencies, most noticeably Langfuse 3.x by @stronk7 ([3a4f19e](https://github.com/moodlehq/wiki-rag/commit/3a4f19e400418b01c67ba00c14e16642466ac94b))
+- MCP: Move from MCP official library to FastMCP v2 by @stronk7 ([c600552](https://github.com/moodlehq/wiki-rag/commit/c600552b74bdff31e29c0fd84b6d3b9933acc6a3))
+
+### New Contributors 🧡:
+
+- @yusufozgur made their first contribution
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.9.1...v0.10.0
+
 ## [0.9.1] - 2025-08-25
 
 ### Changed
@@ -331,7 +339,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..HEAD
+[0.10.0]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..v0.10.0
 [0.9.1]: https://github.com/moodlehq/wiki-rag/compare/v0.9.0..v0.9.1
 [0.9.0]: https://github.com/moodlehq/wiki-rag/compare/v0.8.0..v0.9.0
 [0.8.0]: https://github.com/moodlehq/wiki-rag/compare/v0.7.1..v0.8.0
