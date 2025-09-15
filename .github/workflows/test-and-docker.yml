@@ -1,20 +1,48 @@
-name: Docker build and publish
+name: Test and Docker
 
-on:
-  push:
-    branches:
-      - 'main'
-    tags:
-      - 'v*'
+on: [push, pull_request, workflow_dispatch]
 
 env:
   GITHUB_OWNER: 'moodlehq'
   REPOSITORY: 'wiki-rag'
 
 jobs:
+  Check-and-Test:
+    name: Checks and tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - python: '3.12'
+          - python: '3.13'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Setup Python ${{ matrix.python }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+          cache-dependency-path: "**/pyproject.toml"
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          python -m pip install .[dev]
+          echo "$VIRTUAL_ENV/bin" >> $GITHUB_PATH
+          echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> $GITHUB_ENV
+      - name: Run pre-commit
+        run: pre-commit run --all
   Build-and-Publish:
-    # Completely avoid forks and pull requests to try this job.
-    if: github.repository_owner == 'moodlehq' && contains(fromJson('["push"]'), github.event_name)
+    name: Docker build and publish
+    # Need checks and tests to be passing.
+    needs: Check-and-Test
+    # Completely avoid forks and pull requests to try any docker job. Only upstream repo, main branch and push.
+    if: |
+      github.repository_owner == 'moodlehq' &&
+      github.ref == 'refs/heads/main' &&
+      contains(fromJson('["push"]'), github.event_name)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
