@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- GitHub: Add test and check (pre-commit) job to commits and PRs ([ee4a6c8](https://github.com/moodlehq/wiki-rag/commit/ee4a6c871a3c3b8d8e27c67ce64e8d460e86b82f))
 ## [0.10.0] - 2025-09-13
 
 ### Added
@@ -339,6 +344,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
+[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..HEAD
 [0.10.0]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..v0.10.0
 [0.9.1]: https://github.com/moodlehq/wiki-rag/compare/v0.9.0..v0.9.1
 [0.9.0]: https://github.com/moodlehq/wiki-rag/compare/v0.8.0..v0.9.0

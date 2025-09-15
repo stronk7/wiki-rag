@@ -78,7 +78,7 @@ source = [
 omit = [
     "tests"
 ]
-command_line = "-m unittest discover -s tests"
+command_line = "-m unittest discover -t . -s tests"
 
 [tool.pyright]
 include = [

@@ -34,7 +34,7 @@ Thank you for considering contributing to the Wiki-RAG project. We welcome contr
 5. **Commit and Push Your Changes**
    - Commit your changes with a clear and descriptive message:
      ```bash
-     git commit -m "Add feature: description of your feature/fix"
+     git commit -m "feat(scope): description of your feature/fix  # Conventional commits syntax."
      ```
    - Push your changes to your fork:
      ```bash
