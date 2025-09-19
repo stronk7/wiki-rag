@@ -15,7 +15,7 @@ To get started with Wiki-RAG, ensure you have the following:
 - Git
 - Python 3.12 or later with pip (Python package installer)
 - [Docker](https://www.docker.com/get-started) (if you intend to run the project using Docker)
-- [Milvus 2.5.5](https://milvus.io/docs/release_notes.md#v255) or later (for vector similarity search). Standalone or Distributed deployments are supported. Lite deployments are not supported. It's highly recommended to use the [Docker Compose deployment](https://milvus.io/docs/install_standalone-docker-compose.md) specially for testing and development purposes.
+- [Milvus 2.6.2](https://milvus.io/docs/release_notes.md) or later (for vector similarity search). Standalone or Distributed deployments are supported. Lite deployments are not supported. It's highly recommended to use the [Docker Compose deployment](https://milvus.io/docs/install_standalone-docker-compose.md) specially for testing and development purposes.
 
 ## Configuration
 
@@ -93,11 +93,11 @@ To get started with Wiki-RAG, ensure you have the following:
 
 1. Download the Milvus Docker Compose file:
    ```bash
-   wget https://github.com/milvus-io/milvus/releases/download/v2.5.5/milvus-standalone-docker-compose.yml -O milvus-standalone.yml
+   wget https://github.com/milvus-io/milvus/releases/download/v2.6.2/milvus-standalone-docker-compose.yml -O milvus-standalone.yml
    ```
    OR
    ```bash
-   curl https://github.com/milvus-io/milvus/releases/download/v2.5.5/milvus-standalone-docker-compose.yml -o milvus-standalone.yml
+   curl https://github.com/milvus-io/milvus/releases/download/v2.6.2/milvus-standalone-docker-compose.yml -o milvus-standalone.yml
    ```
 
 2. Run Wiki-RAG own Docker Compose file:

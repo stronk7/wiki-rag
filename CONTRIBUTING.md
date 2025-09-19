@@ -12,6 +12,8 @@ Thank you for considering contributing to the Wiki-RAG project. We welcome contr
      git clone https://github.com/your-username/wiki-rag.git
      cd wiki-rag
      ```
+   - Install development dependencies: `pip install .[dev]`
+   - Enable up pre-commit hooks: `pre-commit install`
 
 2. **Create a Branch**
    - Create a new branch for your feature or bugfix:

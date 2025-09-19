@@ -59,7 +59,7 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement using any of the available communication channels ([Tracker](https://tracker.moodle.org) issues, [Matrix](https://matrix.to/#/#community:moodle.com) messages, [issues](https://github.com/moodlehq/wiki-rag/issues) in this project, [Moodle HQ general contact](https://moodle.com/contact/) form, ...) .
+reported to the community leaders responsible for enforcement using any of the available communication channels ([Tracker](https://moodle.atlassian.net) issues, [Matrix](https://matrix.to/#/#community:moodle.com) messages, [issues](https://github.com/moodlehq/wiki-rag/issues) in this project, [Moodle HQ general contact](https://moodle.com/contact/) form, ...) .
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

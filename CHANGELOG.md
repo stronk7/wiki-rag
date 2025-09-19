@@ -10,7 +10,14 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Added
 
-- GitHub: Add test and check (pre-commit) job to commits and PRs ([ee4a6c8](https://github.com/moodlehq/wiki-rag/commit/ee4a6c871a3c3b8d8e27c67ce64e8d460e86b82f))
+- GitHub: Add test and check (pre-commit) job to commits and PRs by @stronk7 ([0c7e15b](https://github.com/moodlehq/wiki-rag/commit/0c7e15b44f479097db75d0980558f786ee8f804e))
+
+### Changed
+
+- Milvus: Bump Milvus client dependencies to v2.6.2 and up ([86cd0d9](https://github.com/moodlehq/wiki-rag/commit/86cd0d9149536c9d71ed3dd8491f4e43535ada40))
+  - **BREAKING**: This may require to upgrade or regenerate the Milvus instance
+    (currently v2.5.x) although no specific v2.6 features are being used yet.
+
 ## [0.10.0] - 2025-09-13
 
 ### Added
