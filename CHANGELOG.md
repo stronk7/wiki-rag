@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.11.0] - 2025-09-19
 
 ### Added
 
@@ -14,9 +14,12 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Changed
 
-- Milvus: Bump Milvus client dependencies to v2.6.2 and up ([86cd0d9](https://github.com/moodlehq/wiki-rag/commit/86cd0d9149536c9d71ed3dd8491f4e43535ada40))
+- Milvus: Bump Milvus client dependencies to v2.6.2 and up by @stronk7 ([aecfd9f](https://github.com/moodlehq/wiki-rag/commit/aecfd9f9d047b8139dd575aad2568be7d8955e6a))
   - **BREAKING**: This may require to upgrade or regenerate the Milvus instance
     (currently v2.5.x) although no specific v2.6 features are being used yet.
+
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.10.0...v0.11.0
 
 ## [0.10.0] - 2025-09-13
 
@@ -351,7 +354,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..HEAD
+[0.11.0]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..v0.11.0
 [0.10.0]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..v0.10.0
 [0.9.1]: https://github.com/moodlehq/wiki-rag/compare/v0.9.0..v0.9.1
 [0.9.0]: https://github.com/moodlehq/wiki-rag/compare/v0.8.0..v0.9.0
