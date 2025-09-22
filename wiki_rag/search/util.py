@@ -408,7 +408,9 @@ async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     # TODO: Return only the docs which distance is below the cutoff.
     # distance_cutoff = config["configurable"]["search_distance_cutoff"]
     # return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
-    return {"vector_search": retrieved_docs[0]}
+    results = [dict(doc) for doc in retrieved_docs[0]]  # Need this: Langfuse has problems with Milvus Hit objects.
+    return {"vector_search": results}                   # those are UserDict objects, hence, not json-serializable.
+    # Reported @ https://github.com/langfuse/langfuse/issues/9294 , we'll need to keep the workaround, it seems.
 
 
 async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
