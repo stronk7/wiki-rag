@@ -10,7 +10,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Fixed
 
-- Langfuse: Ensure that all objects passed are JSON-serializable
+- Langfuse: Ensure that all objects passed are JSON-serializable by @stronk7 ([307e577](https://github.com/moodlehq/wiki-rag/commit/307e57768394ff4c0a39aee252d72fd31da9847c))
+- GitHub: Fixed problem causing release docker images to be skipped
 ## [0.11.0] - 2025-09-19
 
 ### Added
