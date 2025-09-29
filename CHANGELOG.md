@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [Unreleased]
+
+### Fixed
+
+- Indexing: Avoid name clashes when finding the JSON file to index.
 ## [0.11.1] - 2025-09-23
 
 ### Fixed
@@ -363,6 +368,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
+[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.11.1..HEAD
 [0.11.1]: https://github.com/moodlehq/wiki-rag/compare/v0.11.0..v0.11.1
 [0.11.0]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..v0.11.0
 [0.10.0]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..v0.10.0

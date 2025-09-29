@@ -98,7 +98,7 @@ def main():
     # No candidate yet, let's find the last file in the directory (with collection_name
     # as prefix to filter out other files).
     for file in sorted(loader_dump_path.iterdir()):
-        if file.is_file() and file.name.startswith(collection_name) and file.name.endswith(".json"):
+        if file.is_file() and file.name.startswith(f"{collection_name}-") and file.name.endswith(".json"):
             input_candidate = file
     if not input_candidate:
         logger.error(f"No input file found in {loader_dump_path} with collection name {collection_name}. Exiting.")
