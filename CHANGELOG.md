@@ -8,9 +8,13 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Changed
+
+- Dependencies: Bump dependencies, most noticeably FastMCP.
+
 ### Fixed
 
-- Indexing: Avoid name clashes when finding the JSON file to index.
+- Indexing: Avoid name clashes when finding the JSON file to index by @stronk7 ([7ac9dde](https://github.com/moodlehq/wiki-rag/commit/7ac9ddeb75aafb4a3a0ddda5a333de9b722e3312))
 ## [0.11.1] - 2025-09-23
 
 ### Fixed
