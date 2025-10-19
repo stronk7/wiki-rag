@@ -8,9 +8,14 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Added
+
+- Loader: Modify the dump file format to accommodate metadata.
+
 ### Changed
 
-- Dependencies: Bump dependencies, most noticeably FastMCP.
+- Dependencies: Bump dependencies, most noticeably FastMCP by @stronk7 ([38bdbe6](https://github.com/moodlehq/wiki-rag/commit/38bdbe6709365408e1bfb78f0d17d147a164aafc))
+- Dependencies: Bump langchain and langgraph libs to 1.0.x
 
 ### Fixed
 

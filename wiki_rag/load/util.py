@@ -10,6 +10,7 @@ import re
 import time
 import uuid
 
+from datetime import datetime
 from pathlib import Path
 
 import requests
@@ -50,6 +51,7 @@ def get_mediawiki_pages_list(
 
     session = requests.Session()
 
+    # TODO: Check response code (200) and handle errors.
     result = session.get(url=api_url, params=params, headers=headers)
     articles = result.json()["query"]["statistics"]["articles"]
     max_chunks = (articles * len(namespaces) // chunk) + 1
@@ -72,6 +74,7 @@ def get_mediawiki_pages_list(
                 if next_page:
                     params["apcontinue"] = next_page
 
+                # TODO: Check response code (200) and handle errors.
                 result = session.get(url=api_url, params=params, headers=headers)
                 data = result.json()
                 pages.extend(data["query"]["allpages"])
@@ -158,6 +161,7 @@ def fetch_and_parse_page(mediawiki_url: str, page_id: int, user_agent: str, excl
     }
 
     session = requests.Session()
+    # TODO: Check response code (200) and handle errors.
     result = session.get(url=api_url, params=params, headers=headers)
 
     id = result.json()["parse"]["pageid"]
@@ -363,8 +367,14 @@ def convert_internal_links(pages: list[dict]):
                     section["relations"].append(target[0]["id"])
 
 
-def save_parsed_pages(parsed_pages: list[dict], output_file: Path) -> None:
-    """Save the whole parsed information to a JSON file for later processing."""
+def save_parsed_pages(parsed_pages: list[dict], output_file: Path, timestamp: datetime, url: str) -> None:
+    """Save the whole parsed information to a JSON file for later processing.
+
+    We also add some metadata, apart from the pages that can be useful to check dates and
+    modifications. It will be a dictionary with at least these keys:
+    - meta: A dictionary with metadata about the dump.
+    - sites: The list of mediawiki sites, each being a dict with url, num_pages and pages info list.
+    """
     class CustomEncoder(json.JSONEncoder):
         def default(self, o):
             if isinstance(o, uuid.UUID):
@@ -373,4 +383,17 @@ def save_parsed_pages(parsed_pages: list[dict], output_file: Path) -> None:
             return json.JSONEncoder.default(self, o)
 
     with open(output_file, "w") as f:
-        json.dump(parsed_pages, f, cls=CustomEncoder)  # Ignore, PyCharm bug, PY-73050. Works ok.
+        info = {
+            "meta": {
+                "timestamp": timestamp.isoformat(),
+                "num_sites": 1,  # TODO: Change when multiple sites are supported.
+            },
+            "sites": [
+                {
+                    "site_url": url,
+                    "num_pages": len(parsed_pages),
+                    "pages": parsed_pages,
+                }
+            ]
+        }
+        json.dump(info, f, cls=CustomEncoder)

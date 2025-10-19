@@ -6,6 +6,7 @@
 import json
 import logging
 
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from langchain_openai import OpenAIEmbeddings
@@ -24,16 +25,42 @@ import wiki_rag.index as index
 logger = logging.getLogger(__name__)
 
 
-def load_parsed_information(input_file: Path) -> list[dict]:
+def load_parsed_information(input_file: Path) -> dict:
     """Load the parsed information from the file."""
-    pages = []
+    information = []
     try:
         with open(input_file) as f:
-            pages = json.load(f)
+            information = json.load(f)
     except Exception as e:
         logger.error(f"Error loading the parsed information from {input_file}: {e}")
 
-    return pages
+    # If the old format (array of pages) is detected, let's convert it to the new format,
+    # (basic information in "meta" and pages in "sites").
+    if isinstance(information, list):
+        logger.warning(f"Old format detected in {input_file}, converting to new format.")
+        file_mod_time = datetime.fromtimestamp(input_file.stat().st_mtime, UTC)
+        two_days_ago = file_mod_time - timedelta(days=2)  # ftime -48h so we don't miss anything on incremental index.
+        information = {
+            "meta": {
+                "timestamp": two_days_ago.isoformat(),
+                "num_sites": 1,
+            },
+            "sites": [
+                {
+                    "site_url": "unknown",
+                    "num_pages": len(information),
+                    "pages": information,
+                }
+            ]
+        }
+
+    # If the loaded information is not a dictionary or is missing "meta" and "sites" properties,
+    # this is wrong and we should error. Raise an exception.
+    if not isinstance(information, dict) or "meta" not in information or "sites" not in information:
+        msg = f"Error with the format from {input_file}: missing 'meta' or 'sites' properties."
+        raise ValueError(msg)
+
+    return information
 
 
 def create_temp_collection_schema(collection_name: str, embedding_dimension: int) -> None:

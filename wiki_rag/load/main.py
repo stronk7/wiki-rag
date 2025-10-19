@@ -89,8 +89,9 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
-    # File name is the collection name + toady's date and time (hours and minutes) + .json
-    dump_filename = loader_dump_path / f"{collection_name}-{datetime.now(UTC).strftime('%Y-%m-%d-%H-%M')}.json"
+    # The dump datetime is now, before starting the loading. We use also for the filename.
+    dump_datetime = datetime.now(UTC).replace(microsecond=0)
+    dump_filename = loader_dump_path / f"{collection_name}-{dump_datetime.strftime('%Y-%m-%d-%H-%M')}.json"
 
     user_agent = os.getenv("USER_AGENT")
     if not user_agent:
@@ -128,7 +129,7 @@ def main():
     logger.info(f"Parsed {len(parsed_pages)} pages.")
 
     logger.info(f"Saving parsed pages to {dump_filename}")
-    save_parsed_pages(parsed_pages, dump_filename)
+    save_parsed_pages(parsed_pages, dump_filename, dump_datetime, mediawiki_url)
 
     logger.info("wiki_rag-load finished.")
 
