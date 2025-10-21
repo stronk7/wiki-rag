@@ -10,7 +10,6 @@ import pprint
 from typing import Annotated, Literal, TypedDict
 
 from cachetools import TTLCache, cached
-from langchain import hub
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import (
     ChatPromptTemplate,
@@ -26,6 +25,7 @@ from langgraph.config import get_stream_writer
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
+from langsmith.client import Client
 from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
 import wiki_rag.index as index
@@ -129,7 +129,7 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
             prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
             prompt_provider = "LangSmith"
-            chat_prompt = hub.pull(prefixed_prompt_name)
+            chat_prompt = Client().pull_prompt(prefixed_prompt_name)
         elif os.getenv("LANGFUSE_PROMPTS", "false") == "true":
             langfuse = Langfuse()
             prefixed_prompt_name = f"{os.getenv("LANGFUSE_PROMPT_PREFIX")}{prompt_name}"
