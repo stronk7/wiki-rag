@@ -146,9 +146,9 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
             f"Error loading the prompt {prefixed_prompt_name} from {prompt_provider}: {e}. Applying default one."
         )
         chat_prompt = load_prompts_for_rag_from_local(prompt_name)
-    finally:
-        logger.debug(f"Returning the prompt {prompt_name}: {chat_prompt}")
-        return chat_prompt
+
+    logger.debug(f"Returning the prompt {prompt_name}: {chat_prompt}")
+    return chat_prompt
 
 
 def convert_prompts_for_rag_from_langfuse(langfuse_prompt: TextPromptClient) -> ChatPromptTemplate:

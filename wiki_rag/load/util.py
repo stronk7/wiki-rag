@@ -136,8 +136,6 @@ def get_mediawiki_parsed_pages(
             })
         except Exception as e:
             logger.error(f'  Error processing page "{page["title"]}": {e}')
-        finally:
-            continue
 
     # Now that all the pages and their sections are in memory, we can convert any wiki link
     # to a "relation" to the target section. That will improve the context organisation later,
