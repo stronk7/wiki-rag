@@ -6,20 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.11.2] - 2025-10-22
 
 ### Added
 
-- Loader: Modify the dump file format to accommodate metadata.
+- Loader: Modify the dump file format to support metadata by @stronk7 ([49695ee](https://github.com/moodlehq/wiki-rag/commit/49695ee094f11eba5b077f4de46d9b2ffbde4ec7))
 
 ### Changed
 
 - Dependencies: Bump dependencies, most noticeably FastMCP by @stronk7 ([38bdbe6](https://github.com/moodlehq/wiki-rag/commit/38bdbe6709365408e1bfb78f0d17d147a164aafc))
-- Dependencies: Bump langchain and langgraph libs to 1.0.x
+- Dependencies: Bump langchain and langgraph libs to 1.0.x by @stronk7 ([811cd88](https://github.com/moodlehq/wiki-rag/commit/811cd88d8f656765d873df957d220c7311b7aafe))
 
 ### Fixed
 
 - Indexing: Avoid name clashes when finding the JSON file to index by @stronk7 ([7ac9dde](https://github.com/moodlehq/wiki-rag/commit/7ac9ddeb75aafb4a3a0ddda5a333de9b722e3312))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.11.1...v0.11.2
+
 ## [0.11.1] - 2025-09-23
 
 ### Fixed
@@ -377,7 +380,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.11.1..HEAD
+[0.11.2]: https://github.com/moodlehq/wiki-rag/compare/v0.11.1..v0.11.2
 [0.11.1]: https://github.com/moodlehq/wiki-rag/compare/v0.11.0..v0.11.1
 [0.11.0]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..v0.11.0
 [0.10.0]: https://github.com/moodlehq/wiki-rag/compare/v0.9.1..v0.10.0
