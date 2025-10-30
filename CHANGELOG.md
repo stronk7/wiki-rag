@@ -10,7 +10,10 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Changed
 
-- GitHub: Run GH workflows also with Python 3.14 (aka, πthon).
+- GitHub: Run workflows also with Python 3.14 (aka, πthon) by @stronk7 ([ffc9b17](https://github.com/moodlehq/wiki-rag/commit/ffc9b17312ee7e190050585d674d3f11510fa8f2))
+- Loader: Improve the generation of page head sections
+- Indexer: Better handling of preamble and contents on indexing
+- Searcher: Improve the "popularity" optimisation
 ## [0.11.2] - 2025-10-22
 
 ### Added
@@ -25,10 +28,6 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Fixed
 
 - Indexing: Avoid name clashes when finding the JSON file to index by @stronk7 ([7ac9dde](https://github.com/moodlehq/wiki-rag/commit/7ac9ddeb75aafb4a3a0ddda5a333de9b722e3312))
-
-### New Contributors 🧡:
-
-- @stronk7 made their first contribution
 
 **Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.11.1...v0.11.2
 

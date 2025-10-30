@@ -355,10 +355,10 @@ async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     milvus = MilvusClient(index.milvus_url)
 
     # TODO: Make a bunch of the defaults used here configurable.
-    dense_search_limit = 15
-    sparse_search_limit = 15
+    dense_search_limit = 20
+    sparse_search_limit = 20
     sparse_search_drop_ratio = 0.2
-    hybrid_rerank_limit = 15
+    hybrid_rerank_limit = 30
     rerank_weights = (0.7, 0.3)
 
     # Define the dense search and its parameters.
@@ -424,12 +424,18 @@ async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     if not state["vector_search"]:  # No results, no context.
         return {"context": [], "sources": []}
 
-    top = 5  # TODO: Make this part of the state, configurable.
+    top = 15  # TODO: Make this part of the state, configurable.
+
     # Let's count how many times each element is mentioned as id, parent, children, previous or next,
-    # making a dictionary with the counts. They will be weighted differently, following this order:
-    # id (weight 5), children (weight 3), parent (weight 1), previous (weight 1), next (weight 1)
-    # multiplied by their original distance and with a decay by position applied.
+    # making a dictionary with the counts. They will be weighted differently, depending on where they
+    # appear, multiplied by their original distance and with a decay by position applied.
+    weight_as_id = 1.5  # The document appears as id
+    weight_as_parent = 1.1  # The document appears as parent
+    weight_as_children = 1.01  # The document appears as children
+    weight_as_previous = 1.005  # The document appears as previous
+    weight_as_next = 1.005   # The document appears as next
     # TODO: Also weight relations once we have them.
+
     element_counts = {}
     for position in range(len(state["vector_search"])):
         doc = state["vector_search"][position]
@@ -445,8 +451,9 @@ async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
                 if el and isinstance(el, str):
                     if el not in element_counts:
                         element_counts[el] = 0
-                    element_counts[el] += distance * decay * (5 if element == "id"
-                        else 3 if element == "children"
+                    # Only "id" and "parent" can be here (str).
+                    element_counts[el] += distance * decay * (weight_as_id if element == "id"
+                        else weight_as_parent if element == "parent"
                         else 1)
                 # Else for sure it's a list/array like (iterable) element, so we'll count each element in the list.
                 else:
@@ -454,8 +461,10 @@ async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
                         if isinstance(el, str):
                             if el not in element_counts:
                                 element_counts[el] = 0
-                            element_counts[el] += distance * decay * (5 if element == "id"
-                                else 3 if element == "children"
+                            # Only "children", "previous" and "next" can be here (list)
+                            element_counts[el] += distance * decay * (weight_as_children if element == "children"
+                                else weight_as_previous if element == "previous"
+                                else weight_as_next if element == "next"
                                 else 1)
 
     # Sort them by the weighted popularity results, we'll build the context following this order.
@@ -483,10 +492,9 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5)
     sources_list = []
     not_retrieved = []
     current = 0
-    while current < top:
+    while current < min(len(sorted_items), top):
         # Let's examine the element in the sorted_items list.
-        if not (element_id := sorted_items[current][0]):
-            break
+        element_id = sorted_items[current][0]
         # Find the element in the retrieved_docs list.
         if element := [doc for doc in retrieved_docs if doc["entity"]["id"] == element_id]:
             element = element[0]
