@@ -198,15 +198,19 @@ def fetch_and_parse_page(mediawiki_url: str, page_id: int, user_agent: str, excl
     # Let's process the sections, adding the corresponding text to them.
     sections_info = result.json()["parse"]["sections"]
     sections = []
-    # If there aren't sections or the fist section doesn't start at 0, we need to add a section
-    # with the text from the beginning of the page to it.
-    if not sections_info or sections_info[0]["byteoffset"]:
+    # If there aren't sections or the fist section doesn't start at 0, or the first section
+    # does have an anchor, we need to add a zero section with the title/text from
+    # the beginning of the page (byteoffset = 0). Basically we always want to have this
+    # "zero section" as parent of the rest of the page.
+    if not sections_info or sections_info[0]["byteoffset"] or sections_info[0]["anchor"]:
+        # No sections, we are level 1, else, we are one less the first section level.
+        level = 1 if not sections_info else int(sections_info[0]["level"]) - 1
         section_zero = {
             "anchor": "",
             "line": title,
             "byteoffset": 0,
             "index": 0,
-            "level": 1,
+            "level": level,
         }
         sections_info.insert(0, section_zero)
 
@@ -244,7 +248,7 @@ def fetch_and_parse_page(mediawiki_url: str, page_id: int, user_agent: str, excl
             "next": [],
             "relations": [],
         }
-        text_end = section_byteoffset - 1
+        text_end = max(section_byteoffset - 1, 0)
         # TODO: If the section is too big, we should split it here in smaller parts before continuing.
         #  Some semantic text splitting without overlap should be ok. Maybe separate section and chunks...
         #  Alternatively, we can just crop and done, but we'll lose some context.
