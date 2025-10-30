@@ -131,19 +131,28 @@ def index_pages(
 
     for page in tqdm(pages, desc="Processing pages", unit="pages"):
         for section in page["sections"]:
-            if len(section["text"]) > 5000:
-                # TODO: We need to split the text in smaller chunks here, say 2500 max or so. For now, just trim.
-                section["text"] = section["text"][:5000]
-                logger.warning(f'Text too long for section "{section["doc_title"]} / {section["title"]}", '
-                                'trimmed to 5000 characters.')
+            # Calculate the preamble text (doc + section title).
+            text_preamble = section["doc_title"]
+            if section["title"] != section["doc_title"]:
+                text_preamble = text_preamble + f" / {section['title']}"
+            text_preamble = text_preamble.strip() + "\n\n"
 
-            dense_embedding = embeddings.embed_documents(
-                [f"{section["doc_title"]} / {section["title"]}\n\n{section["text"]}"])
+            # Calculate the complete text (preamble + text, if existing).
+            text_content = section["text"] if section["text"] else ""
+            if len(text_content) > 5000:
+                # TODO: We need to split the text in smaller chunks here, say 2500 max or so. For now, just trim.
+                text_content = text_content[:5000].strip()
+                logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 characters.')
+            complete_text = text_preamble + text_content
+            logger.debug(f"Embedding {text_preamble}, text len {len(text_content)}")
+
+            dense_embedding = embeddings.embed_documents([complete_text])
+            logger.debug(f"Embedding for {text_preamble}, dim len {len(dense_embedding[0])}")
             data = [
                 {
                     "id": str(section["id"]),
                     "title": section["title"],
-                    "text": section["text"],
+                    "text": text_content,
                     "source": section["source"],
                     "dense_vector": dense_embedding[0],
                     "parent": str(section["parent"]) if section["parent"] else None,
@@ -161,7 +170,7 @@ def index_pages(
                 milvus.insert(collection_name, data)
                 num_sections += 1
             except Exception as e:
-                print(e)
+                logger.error(f"Failed to insert data: {e}")
         num_pages += 1
 
     milvus.close()
