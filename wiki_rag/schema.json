@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/moodlehq/wiki-rag/raw/refs/heads/main/wiki_rag/schema.json",
+  "title": "Wiki-RAG data files schema",
+  "type": "object",
+  "required": ["meta", "sites"],
+  "unevaluatedProperties": false,
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["timestamp", "num_sites"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "timestamp": { "type": "string", "format": "date-time" },
+        "num_sites": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "sites": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/site" }
+    }
+  },
+
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "uuidOrNull": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+
+    "site": {
+      "type": "object",
+      "required": ["site_url", "num_pages", "pages"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "site_url": { "type": "string", "format": "uri" },
+        "num_pages": { "type": "integer", "minimum": 0 },
+        "pages": { "type": "array", "items": { "$ref": "#/$defs/page" } }
+      }
+    },
+
+    "page": {
+      "type": "object",
+      "required": ["id", "title", "sections"],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "type": "integer" },
+        "title": { "type": "string" },
+        "sections": { "type": "array", "items": { "$ref": "#/$defs/section" } },
+        "categories": { "type": "array", "items": { "type": "string" } },
+        "templates": { "type": "array", "items": { "type": "string" } },
+        "internal_links": { "type": "array", "items": { "type": "string" } },
+        "external_links": { "type": "array", "items": { "type": "string" } },
+        "language_links": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "section": {
+      "type": "object",
+      "required": [
+        "id", "anchor", "title", "source", "text", "all_links", "wiki_links",
+        "index", "level", "page_id", "doc_id", "doc_title", "doc_hash",
+        "parent", "children", "previous", "next", "relations"
+      ],
+      "unevaluatedProperties": false,
+      "properties": {
+        "id": { "$ref": "#/$defs/uuid" },
+        "anchor": { "type": "string" },
+        "title": { "type": "string" },
+        "source": { "type": "string", "format": "uri" },
+        "text": { "type": "string" },
+        "all_links": { "type": "array", "items": { "type": "string" } },
+        "wiki_links": { "type": "array", "items": { "type": "string" } },
+        "index": { "type": "integer", "minimum": 0 },
+        "level": { "type": "integer", "minimum": 0 },
+        "page_id": { "type": "integer" },
+        "doc_id": { "$ref": "#/$defs/uuid" },
+        "doc_title": { "type": "string" },
+        "doc_hash": { "$ref": "#/$defs/uuid" },
+        "parent": { "$ref": "#/$defs/uuidOrNull" },
+        "children": { "type": "array", "items": { "$ref": "#/$defs/uuidOrNull" } },
+        "previous": { "type": "array", "items": { "$ref": "#/$defs/uuidOrNull" } },
+        "next": { "type": "array", "items": { "$ref": "#/$defs/uuidOrNull" } },
+        "relations": { "type": "array", "items": { "$ref": "#/$defs/uuidOrNull" } }
+      }
+    }
+  }
+}

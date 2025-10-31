@@ -9,6 +9,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+from jsonschema import ValidationError, validate
 from langchain_openai import OpenAIEmbeddings
 from pymilvus import (
     CollectionSchema,
@@ -21,6 +22,8 @@ from pymilvus import (
 from tqdm import tqdm
 
 import wiki_rag.index as index
+
+from wiki_rag import ROOT_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -54,11 +57,15 @@ def load_parsed_information(input_file: Path) -> dict:
             ]
         }
 
-    # If the loaded information is not a dictionary or is missing "meta" and "sites" properties,
-    # this is wrong and we should error. Raise an exception.
-    if not isinstance(information, dict) or "meta" not in information or "sites" not in information:
-        msg = f"Error with the format from {input_file}: missing 'meta' or 'sites' properties."
-        raise ValueError(msg)
+    # Let's validate the schema as much as we can.
+    schema = json.load(open(ROOT_DIR / "wiki_rag/schema.json"))
+    try:
+        validate(information, schema)
+        logger.debug("Successfully parsed the JSON information")
+    except ValidationError as e:
+        msg = f"Error validating the JSON information from {input_file}: {e}"
+        logger.error(msg)
+        exit(1)
 
     return information
 

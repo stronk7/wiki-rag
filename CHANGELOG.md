@@ -8,12 +8,16 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Added
+
+- Indexer: Add JSON schema support and apply for it before indexing
+
 ### Changed
 
 - GitHub: Run workflows also with Python 3.14 (aka, πthon) by @stronk7 ([ffc9b17](https://github.com/moodlehq/wiki-rag/commit/ffc9b17312ee7e190050585d674d3f11510fa8f2))
-- Loader: Improve the generation of page head sections
-- Indexer: Better handling of preamble and contents on indexing
-- Searcher: Improve the "popularity" optimisation
+- Loader: Improve the generation of page head sections by @stronk7 ([a228019](https://github.com/moodlehq/wiki-rag/commit/a228019a03284aa21da8661adfd2c23dac9eee8d))
+- Indexer: Better handling of preamble and contents on indexing by @stronk7 ([996eeec](https://github.com/moodlehq/wiki-rag/commit/996eeecfc9d3f49ee6b9264ae77cea9fa5bb0f34))
+- Searcher: Improve the "popularity" optimisation by @stronk7 ([5e84ba5](https://github.com/moodlehq/wiki-rag/commit/5e84ba5039fdb02a8b5549297036cbe7c3931d03))
 ## [0.11.2] - 2025-10-22
 
 ### Added

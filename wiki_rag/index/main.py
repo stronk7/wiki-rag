@@ -107,11 +107,11 @@ def main():
     # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
     input_file = loader_dump_path / input_candidate
 
-    logger.info(f"Loading parsed pages from json: {input_file}, namespaces: {mediawiki_namespaces}")
+    logger.info(f"Loading parsed pages from JSON: {input_file}, namespaces: {mediawiki_namespaces}")
     information = load_parsed_information(input_file)
     # TODO: Multiple site information handling should be implemented here.
     pages = information["sites"][0]["pages"]
-    logger.info(f"Loaded {len(pages)} pages from json file")
+    logger.info(f"Loaded {len(pages)} pages from JSON file")
 
     temp_collection_name = f"{collection_name}_temp"
     logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
