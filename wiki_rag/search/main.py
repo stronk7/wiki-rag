@@ -168,10 +168,11 @@ async def run():
     logger.debug(f'Question: "{question}"')
 
     # Prepare the configuration schema.
-    # TODO, make prompt name, task_def, kb_*, cutoff, max tokens, temperature, top_p
+    # TODO, make prompt name, product, task_def, kb_*, cutoff, max tokens, temperature, top_p
     #  configurable. With defaults applied if not configured.
     context = ContextSchema(
         prompt_name="wiki-rag",
+        product="Moodle",
         task_def="Moodle user documentation",
         kb_name="Moodle Docs",
         kb_url=mediawiki_url,
@@ -188,7 +189,7 @@ async def run():
         wrapper_chat_max_turns=0,
         wrapper_chat_max_tokens=0,
         wrapper_model_name=llm_model,
-        langfuse_callback=None
+        langfuse_callback=None,
     )
 
     # If we want to use langfuse, let's instantiate the handler here, only once

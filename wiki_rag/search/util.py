@@ -42,6 +42,7 @@ class ContextSchema(TypedDict):
     """
 
     prompt_name: str
+    product: str
     task_def: str
     kb_name: str
     kb_url: str
@@ -232,7 +233,11 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
             "Given the chat history and the original question which might reference "
             "context in the chat history, rephrase and expand the original question "
             "so it  can be understood without the chat history. Do NOT answer to the "
-            "original question."
+            "original question or ask for clarifications or details about it."
+            ""
+            "When not sure, always assume that the request is related to some {product} concept, "
+            "for example: 'What is a capability' should be transformed to include the "
+            "'{product}' text and look like 'What is a {product} capability'."
             ""
             "Always return a valid JSON structure with two elements:"
             '1. A "type" element with value "rewrite".'
@@ -282,6 +287,7 @@ async def query_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dic
             prompt=contextualise_prompt,
             question=state["question"],
             history=state["history"],
+            product=runtime.context["product"],
             model=runtime.context["contextualisation_model"],
         )
 
@@ -304,6 +310,7 @@ async def contextualise_question(
         prompt: ChatPromptTemplate,
         question: str,
         history: list[BaseMessage],
+        product: str,
         model: str,
 ) -> dict:
     """Contextualise the question with the history and the model.
@@ -319,6 +326,7 @@ async def contextualise_question(
     chat = await prompt.ainvoke({
         "question": question,
         "history": history,
+        "product": product,
     })
 
     llm = ChatOpenAI(

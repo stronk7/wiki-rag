@@ -165,6 +165,7 @@ def main():
     #  configurable. With defaults applied if not configured.
     server.context = ContextSchema(
         prompt_name="wiki-rag",
+        product="Moodle",
         task_def="Moodle user documentation",
         kb_name="Moodle Docs",
         kb_url=mediawiki_url,
@@ -181,7 +182,7 @@ def main():
         wrapper_chat_max_turns=wrapper_chat_max_turns,
         wrapper_chat_max_tokens=wrapper_chat_max_tokens,
         wrapper_model_name=wrapper_model_name,
-        langfuse_callback=None
+        langfuse_callback=None,
     )
 
     # Prepare the configuration.

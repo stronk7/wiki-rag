@@ -10,7 +10,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Added
 
-- Indexer: Add JSON schema support and apply for it before indexing
+- Indexer: Add JSON schema support and apply for it before indexing by @stronk7 ([81b49e3](https://github.com/moodlehq/wiki-rag/commit/81b49e3ce7631f7e04da33024ca6049ea5ce7bcb))
 
 ### Changed
 
@@ -18,6 +18,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - Loader: Improve the generation of page head sections by @stronk7 ([a228019](https://github.com/moodlehq/wiki-rag/commit/a228019a03284aa21da8661adfd2c23dac9eee8d))
 - Indexer: Better handling of preamble and contents on indexing by @stronk7 ([996eeec](https://github.com/moodlehq/wiki-rag/commit/996eeecfc9d3f49ee6b9264ae77cea9fa5bb0f34))
 - Searcher: Improve the "popularity" optimisation by @stronk7 ([5e84ba5](https://github.com/moodlehq/wiki-rag/commit/5e84ba5039fdb02a8b5549297036cbe7c3931d03))
+- Retriever: Improve the query rewrite to be more specific
 ## [0.11.2] - 2025-10-22
 
 ### Added
