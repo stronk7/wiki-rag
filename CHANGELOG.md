@@ -11,6 +11,9 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Added
 
 - Indexer: Add JSON schema support and apply for it before indexing by @stronk7 ([81b49e3](https://github.com/moodlehq/wiki-rag/commit/81b49e3ce7631f7e04da33024ca6049ea5ce7bcb))
+- Vector Stores: First step towards making vector stores pluggable
+- Vector Stores: Move the indexer and the searcher to use pluggable stores.
+- Vector Stores: Move the OpenAI and MCP servers to use pluggable stores.
 
 ### Changed
 
@@ -19,6 +22,15 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - Indexer: Better handling of preamble and contents on indexing by @stronk7 ([996eeec](https://github.com/moodlehq/wiki-rag/commit/996eeecfc9d3f49ee6b9264ae77cea9fa5bb0f34))
 - Searcher: Improve the "popularity" optimisation by @stronk7 ([5e84ba5](https://github.com/moodlehq/wiki-rag/commit/5e84ba5039fdb02a8b5549297036cbe7c3931d03))
 - Retriever: Improve the query rewrite to be more specific
+- MCP: Switch the server from SSE to HTTP
+  - **BREAKING**: Any client previously using MCP SSE clients
+must change the transport to HTTP. Normally this change is
+trivial and everything continues working exactly the same.
+
+
+### Fixed
+
+- MCP: Fix the MCP resources to work with the new file format added in [v0.11.2](#0112---2025-10-22)
 ## [0.11.2] - 2025-10-22
 
 ### Added

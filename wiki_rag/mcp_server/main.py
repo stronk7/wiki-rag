@@ -221,11 +221,7 @@ def main():
     # Start the mcp_server server
     from wiki_rag.mcp_server.server import mcp
 
-    mcp.settings.host = mcp_server
-    mcp.settings.port = mcp_port
-    mcp.run("sse")
-    # import asyncio
-    # asyncio.run(mcp_server.run_sse_async())
+    mcp.run("http", host=mcp_server, port=mcp_port)
 
     logger.info("wiki_rag-server-mcp_server finished.")
 
