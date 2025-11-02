@@ -125,58 +125,58 @@ async def generate(messages: list[Message]) -> dict[str, str]:
 @mcp.resource("resource://get_10_pages")
 def get_10_pages() -> list[dict]:
     """Get the first 10 parsed pages."""
-    logger.info("Resource: Getting 10 pages")
+    logger.info(f"Resource: Getting 10 pages from {mcp_global.res_file}")
     # First of all, load the json from the resource file and verify that everything is ok.
     if mcp_global.res_file is None:
         error_msg = "Error: resource file not set."
         raise RuntimeError(error_msg)
-    pages = load_parsed_information(mcp_global.res_file)
-    if not pages:
+    information = load_parsed_information(mcp_global.res_file)
+    if not information:
         error_msg = f"Error: loading and parsing the resource file {mcp_global.res_file}."
         raise RuntimeError(error_msg)
 
-    return pages[:10]
+    return information["sites"][0]["pages"][:10]
 
 
 # Add a resource that returns the first 100 parsed pages.
 @mcp.resource("resource://get_100_pages")
 def get_100_pages() -> list[dict]:
     """Get the first 100 parsed pages."""
-    logger.info("Resource: Getting 100 pages")
+    logger.info(f"Resource: Getting 100 pages from {mcp_global.res_file}")
     # First of all, load the json from the resource file and verify that everything is ok.
     if mcp_global.res_file is None:
         error_msg = "Error: resource file not set."
         raise RuntimeError(error_msg)
-    pages = load_parsed_information(mcp_global.res_file)
-    if not pages:
+    information = load_parsed_information(mcp_global.res_file)
+    if not information:
         error_msg = f"Error: loading and parsing the resource file {mcp_global.res_file}."
         raise RuntimeError(error_msg)
 
-    return pages[:100]
+    return information["sites"][0]["pages"][:100]
 
 
 # Add a resource template that accepts start and number of pages to return.
 @mcp.resource("resource://get_pages/{start}/{number}")
 def get_pages(start: int, number: int) -> list[dict]:
     """Get "number" parsed pages, starting from "start"."""
-    logger.info(f"Resource: Getting {number} pages starting at {start}")
+    logger.info(f"Resource: Getting {number} pages starting at {start} from {mcp_global.res_file}")
     # First of all, load the json from the resource file and verify that everything is ok.
     if mcp_global.res_file is None:
         error_msg = "Error: resource file not set."
         raise RuntimeError(error_msg)
-    pages = load_parsed_information(mcp_global.res_file)
-    if not pages:
+    information = load_parsed_information(mcp_global.res_file)
+    if not information:
         error_msg = f"Error: loading and parsing the resource file {mcp_global.res_file}."
         raise RuntimeError(error_msg)
     # Check that the start and number are valid.
-    if (start - 1 + number) > len(pages):
+    if (start - 1 + number) > len(information["sites"][0]["pages"]):
         error_msg = f"Error: start ({start}) and number ({number}) are out of range."
         raise ValueError(error_msg)
     if start < 1:
         error_msg = f"Error: start ({start}) must be greater than 0."
         raise ValueError(error_msg)
 
-    return pages[start - 1:start - 1 + number]
+    return information["sites"][0]["pages"][start - 1:start - 1 + number]
 
 
 @mcp.prompt()
