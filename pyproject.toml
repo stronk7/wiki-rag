@@ -38,7 +38,7 @@ dependencies = [
     "langgraph ~= 1.0.1",
     "langsmith ~= 0.4.37",
     "fastmcp ~= 2.13.0",
-    "pymilvus ~= 2.6.2",
+    "pymilvus ~= 2.6.3",
     "python-dotenv ~= 1.2.1",
     "tiktoken ~= 0.12.0",
     "tqdm ~= 4.67.1",
@@ -119,6 +119,7 @@ lines-between-types = 1
 max-line-length = 120
 
 [tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"] # Ignore the unused imports in init files because we use them to make easier package paths.
 "tests/**/test_**.py" = ["D101", "D102", "D103"] # Don't require doc strings for tests
 
 [tool.codespell]
