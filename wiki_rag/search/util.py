@@ -17,7 +17,7 @@ from langchain_core.prompts import (
     MessagesPlaceholder,
     SystemMessagePromptTemplate,
 )
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langfuse import Langfuse
 from langfuse.langchain import CallbackHandler
 from langfuse.model import TextPromptClient
@@ -26,9 +26,8 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langsmith.client import Client
-from pymilvus import AnnSearchRequest, MilvusClient, WeightedRanker
 
-import wiki_rag.index as index
+import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL
 
@@ -346,79 +345,18 @@ async def contextualise_question(
 
 
 async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
-    """Retrieve the best matches from the indexed database.
-
-    Here we'll be using Milvus hybrid search that performs a vector search (dense, embeddings)
-    and a BM25 search (sparse, full text). And then will rerank results with the weighted
-    reranker.
-    """
-    # Note that here we are using the Milvus own library instead of the LangChain one because
-    # the LangChain one doesn't support many of the features used here.
-    embeddings = OpenAIEmbeddings(
-        model=runtime.context["embedding_model"],
-        dimensions=runtime.context["embedding_dimension"]
+    """Retrieve the best matches from the indexed database."""
+    results = vector.store.retrieve(
+        collection_name=runtime.context["collection_name"],
+        embedding_model=runtime.context["embedding_model"],
+        embedding_dimensions=runtime.context["embedding_dimension"],
+        query=state["question"],
     )
-    query_embedding = embeddings.embed_query(state["question"])
-
-    milvus = MilvusClient(index.milvus_url)
-
-    # TODO: Make a bunch of the defaults used here configurable.
-    dense_search_limit = 20
-    sparse_search_limit = 20
-    sparse_search_drop_ratio = 0.2
-    hybrid_rerank_limit = 30
-    rerank_weights = (0.7, 0.3)
-
-    # Define the dense search and its parameters.
-    dense_search_params = {
-        "metric_type": "IP",
-        "params": {
-            "ef": dense_search_limit,
-        }
-    }
-    dense_search = AnnSearchRequest(
-        [query_embedding], "dense_vector", dense_search_params, limit=dense_search_limit,
-    )
-
-    # Define the sparse search and its parameters.
-    sparse_search_params = {
-        "metric_type": "BM25",
-        "drop_ratio_search": sparse_search_drop_ratio,
-    }
-    sparse_search = AnnSearchRequest(
-        [state["question"]], "sparse_vector", sparse_search_params, limit=sparse_search_limit,
-    )
-
-    # Perform the hybrid search.
-    retrieved_docs = milvus.hybrid_search(
-        runtime.context["collection_name"],
-        [dense_search, sparse_search],
-        WeightedRanker(*rerank_weights),
-        limit=hybrid_rerank_limit,
-        output_fields=[
-            "id",
-            "title",
-            "text",
-            "source",
-            "doc_id",
-            "doc_title",
-            "doc_hash",
-            "parent",
-            "children",
-            "previous",
-            "next",
-            "relations",
-            "page_id",
-        ]
-    )
-    milvus.close()
 
     # TODO: Return only the docs which distance is below the cutoff.
-    # distance_cutoff = config["configurable"]["search_distance_cutoff"]
+    # distance_cutoff = runtime.context["search_distance_cutoff"]
     # return {"vector_search": [doc for doc in retrieved_docs[0] if doc["distance"] >= distance_cutoff]}
-    results = [dict(doc) for doc in retrieved_docs[0]]  # Need this: Langfuse has problems with Milvus Hit objects.
-    return {"vector_search": results}                   # those are UserDict objects, hence, not json-serializable.
-    # Reported @ https://github.com/langfuse/langfuse/issues/9294 , we'll need to keep the workaround, it seems.
+    return {"vector_search": results}
 
 
 async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
@@ -555,7 +493,7 @@ def retrieve_all_elements(retrieved_docs, context_list, collection_name: str) ->
             context_texts[id] = f"{retrieved[0]["entity"]["title"]}\n\n{retrieved[0]["entity"]["text"]}"
         else:
             context_texts[id] = None
-            # If not, let's retrieve it from the milvus collection.
+            # If not, let's accumulate it for later id based retrieval.
             context_missing.append(id)
 
     missing_docs = get_missing_from_vector_store(context_missing, collection_name)
@@ -573,16 +511,7 @@ def get_missing_from_vector_store(context_missing: list, collection_name: str) -
     if not context_missing:  # No missing elements, nothing extra to retrieve.
         return {}
 
-    milvus = MilvusClient(index.milvus_url)
-
-    # Let's find in the collection, the missing elements and get their titles and texts.
-    missing_docs_db = milvus.query(
-        collection_name,
-        ids=context_missing,
-        output_fields=["id", "title", "text"])
-    missing_docs = {doc["id"]: f"{doc["title"]}\n\n{doc["text"]}" for doc in missing_docs_db}
-    milvus.close()
-    return missing_docs
+    return vector.store.get_documents_contents_by_id(collection_name, context_missing)
 
 
 async def generate(state: RagState, runtime: Runtime[ContextSchema]) -> dict:

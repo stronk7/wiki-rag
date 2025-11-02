@@ -17,11 +17,12 @@ from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from langfuse.langchain import CallbackHandler
 
-import wiki_rag.index as index
+import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
 from wiki_rag.search.util import ContextSchema, build_graph
 from wiki_rag.util import setup_logging
+from wiki_rag.vector import load_vector_store
 
 
 async def run():
@@ -71,10 +72,10 @@ async def run():
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
 
-    index.milvus_url = os.getenv("MILVUS_URL")
-    if not index.milvus_url:
-        logger.error("Milvus URL not found in environment. Exiting.")
-        sys.exit(1)
+    index_vendor = os.getenv("INDEX_VENDOR")
+    if not index_vendor:
+        logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
+        index_vendor = "milvus"
 
     # If LangSmith tracing is enabled, put a name for the project and verify that all required env vars are set.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
@@ -154,6 +155,8 @@ async def run():
         sys.exit(1)
 
     contextualisation_model = os.getenv("CONTEXTUALISATION_MODEL")
+
+    vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
 
     # Let's accept arg[1] as the question to be asked.
     parser = argparse.ArgumentParser()
