@@ -12,12 +12,13 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langfuse.langchain import CallbackHandler
 
-import wiki_rag.index as index
 import wiki_rag.mcp_server as mcp_global
+import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
 from wiki_rag.search.util import ContextSchema
 from wiki_rag.util import setup_logging
+from wiki_rag.vector import load_vector_store
 
 
 def main():
@@ -68,10 +69,10 @@ def main():
         sys.exit(1)
         # TODO: Validate that only numbers, letters and underscores are used.
 
-    index.milvus_url = os.getenv("MILVUS_URL")
-    if not index.milvus_url:
-        logger.error("Milvus URL not found in environment. Exiting.")
-        sys.exit(1)
+    index_vendor = os.getenv("INDEX_VENDOR")
+    if not index_vendor:
+        logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
+        index_vendor = "milvus"
 
     # If LangSmith tracing is enabled, put a name for the project and verify that all required env vars are set.
     if os.getenv("LANGSMITH_TRACING", "false") == "true":
@@ -162,6 +163,8 @@ def main():
         mcp_port = int(parts[1])
     else:
         mcp_port = 8081
+
+    vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
 
     # Calculate the file that we are going to use as source for the resources.
     input_candidate = ""
