@@ -6,14 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.12.0] - 2025-11-03
 
 ### Added
 
 - Indexer: Add JSON schema support and apply for it before indexing by @stronk7 ([81b49e3](https://github.com/moodlehq/wiki-rag/commit/81b49e3ce7631f7e04da33024ca6049ea5ce7bcb))
-- Vector Stores: First step towards making vector stores pluggable
-- Vector Stores: Move the indexer and the searcher to use pluggable stores.
-- Vector Stores: Move the OpenAI and MCP servers to use pluggable stores.
+- Vector Stores: First step towards making vector stores pluggable by @stronk7 ([b605134](https://github.com/moodlehq/wiki-rag/commit/b60513481efa64f2bcd618e64c06e4316db7b412))
+- Vector Stores: Move the indexer and the searcher to use pluggable stores. by @stronk7 ([a49c037](https://github.com/moodlehq/wiki-rag/commit/a49c037732e23883fba4f069e18510314c45c63b))
+- Vector Stores: Move the OpenAI and MCP servers to use pluggable stores. by @stronk7 ([2cccf31](https://github.com/moodlehq/wiki-rag/commit/2cccf31d04018466fcf738a5df2b6dda2af355bf))
 
 ### Changed
 
@@ -21,8 +21,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - Loader: Improve the generation of page head sections by @stronk7 ([a228019](https://github.com/moodlehq/wiki-rag/commit/a228019a03284aa21da8661adfd2c23dac9eee8d))
 - Indexer: Better handling of preamble and contents on indexing by @stronk7 ([996eeec](https://github.com/moodlehq/wiki-rag/commit/996eeecfc9d3f49ee6b9264ae77cea9fa5bb0f34))
 - Searcher: Improve the "popularity" optimisation by @stronk7 ([5e84ba5](https://github.com/moodlehq/wiki-rag/commit/5e84ba5039fdb02a8b5549297036cbe7c3931d03))
-- Retriever: Improve the query rewrite to be more specific
-- MCP: Switch the server from SSE to HTTP
+- Retriever: Improve the query rewrite to be more specific by @stronk7 ([f2156bf](https://github.com/moodlehq/wiki-rag/commit/f2156bf3f68bd773b971cf5a380fe2487326f096))
+- MCP: Switch the server from SSE to HTTP by @stronk7 ([967ba0c](https://github.com/moodlehq/wiki-rag/commit/967ba0c3853644de0106d7a5402178fb59ebd512))
   - **BREAKING**: Any client previously using MCP SSE clients
 must change the transport to HTTP. Normally this change is
 trivial and everything continues working exactly the same.
@@ -30,7 +30,10 @@ trivial and everything continues working exactly the same.
 
 ### Fixed
 
-- MCP: Fix the MCP resources to work with the new file format added in [v0.11.2](#0112---2025-10-22)
+- MCP: Fix the MCP resources to work with the new file format added in [v0.11.2](#0112---2025-10-22) by @stronk7 ([9ef93b3](https://github.com/moodlehq/wiki-rag/commit/9ef93b38af071d8dc9c96fcef6362ed56699c3f5))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.11.2...v0.12.0
+
 ## [0.11.2] - 2025-10-22
 
 ### Added
@@ -405,7 +408,7 @@ trivial and everything continues working exactly the same.
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.11.2..HEAD
+[0.12.0]: https://github.com/moodlehq/wiki-rag/compare/v0.11.2..v0.12.0
 [0.11.2]: https://github.com/moodlehq/wiki-rag/compare/v0.11.1..v0.11.2
 [0.11.1]: https://github.com/moodlehq/wiki-rag/compare/v0.11.0..v0.11.1
 [0.11.0]: https://github.com/moodlehq/wiki-rag/compare/v0.10.0..v0.11.0
