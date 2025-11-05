@@ -330,7 +330,7 @@ async def contextualise_question(
 
     llm = ChatOpenAI(
         model=model,
-        max_completion_tokens=512,  # TODO: Make these 3 configurable.
+        max_completion_tokens=1536,  # TODO: Make these 3 configurable.
         top_p=0.85,
         temperature=0.1,
         disable_streaming=True,

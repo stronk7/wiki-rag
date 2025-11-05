@@ -26,17 +26,17 @@ dynamic = ["version"]
 
 requires-python = ">=3.12"
 dependencies = [
-    "aiohttp ~= 3.13.1",
+    "aiohttp ~= 3.13.2",
     "cachetools ~= 6.2.1",
     "colorlog ~= 6.10.1",
-    "fastapi ~= 0.120.1",
-    "langchain ~= 1.0.1",
+    "fastapi ~= 0.120.4",
+    "langchain ~= 1.0.3",
     "langchain-community ~= 0.4.0",
-    "langchain-core ~= 1.0.0",
+    "langchain-core ~= 1.0.2",
     "langchain-openai ~= 1.0.0",
     "langfuse ~= 3.8.1",
-    "langgraph ~= 1.0.1",
-    "langsmith ~= 0.4.37",
+    "langgraph ~= 1.0.2",
+    "langsmith ~= 0.4.39",
     "fastmcp ~= 2.13.0",
     "pymilvus ~= 2.6.3",
     "python-dotenv ~= 1.2.1",
@@ -55,7 +55,7 @@ dev = [
     "git-cliff ~= 2.10.1",
     "pre-commit ~= 4.3.0",
     "pyright ~= 1.1.406",
-    "ruff ~= 0.14.1",
+    "ruff ~= 0.14.3",
 ]
 
 [project.scripts]

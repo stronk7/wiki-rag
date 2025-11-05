@@ -46,6 +46,9 @@ body = """
         {% endif -%}
     {% endfor %}
 {% endfor %}
+{%- if not version -%}
+  {% raw %}\n{% endraw %}
+{%- endif -%}
 
 {%- if github -%}
   {% if github.contributors | filter(attribute="is_first_time", value=true) | length != 0 %}

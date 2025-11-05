@@ -37,8 +37,8 @@ class Message(TypedDict):
 class ChatCompletionRequest(BaseModel):
     """Chat completion request model. Includes the messages history and the model to use."""
 
-    max_tokens: int | None = 960  # Max tokens to generate (not all models support this). Deprecated.
-    max_completion_tokens: int | None = 960  # Max tokens to generate (not all models support this).
+    max_tokens: int | None = 1536  # Max tokens to generate (not all models support this). Deprecated.
+    max_completion_tokens: int | None = 1536  # Max tokens to generate (not all models support this).
     temperature: float | None = 0.05  # Temperature for sampling (0.0, deterministic to 2.0, creative).
     top_p: float | None = 0.85  # Which probability (0.0 - 1.0) is used to consider the next token (0.85 default).
     model: str = server.context["wrapper_model_name"]

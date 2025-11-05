@@ -178,7 +178,7 @@ def main():
         llm_model=llm_model,
         contextualisation_model=contextualisation_model,
         search_distance_cutoff=0.6,
-        max_completion_tokens=960,
+        max_completion_tokens=1536,  # TODO: Make these 3 configurable.
         temperature=0.05,
         top_p=0.85,
         stream=False,
