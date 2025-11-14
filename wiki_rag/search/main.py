@@ -293,8 +293,8 @@ def add_signal_handlers(run_loop) -> None:
 def main():
     """Prepare the async loop for operation and graceful shutdown, then run()."""
     # Create the event loop, set it as current and add the signal handlers.
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    asyncio.get_event_loop_policy().set_event_loop(loop)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
     add_signal_handlers(loop)
     exitcode = 0
     try:
