@@ -20,9 +20,9 @@ To get started with Wiki-RAG, ensure you have the following:
 ## Configuration
 
 1. **Set Environment Variables (to be replaced soon by `config.yml`file)**
-   - Using the [env_template](env_template) file as source, create a new `.env` file:
+   - Using the [env_template](dotenv.template) file as source, create a new `.env` file:
      ```bash
-     cp env_template .env
+     cp dotenv.template .env
      ```
    - Edit it to suit your needs (mediawiki site and namespaces or exclusions, models to use for both embeddings and generation, etc.)
 

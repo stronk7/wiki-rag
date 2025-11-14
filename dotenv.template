@@ -12,7 +12,7 @@ MEDIAWIKI_NAMESPACES="0,4,12"
 MEDIAWIKI_EXCLUDED="categories:Category A, Category B;wikitext:Some regex to exclude"
 MEDIAWIKI_KEEP_TEMPLATES="Template1, Template2"
 
-# This is both the DB collection name and the model name for the OpenAI API.
+# This is the DB collection name.
 COLLECTION_NAME="your_collection_name"
 # Defaults to PROJECT_DIR/data
 LOADER_DUMP_PATH=
@@ -63,4 +63,4 @@ AUTH_URL="http://0.0.0.0:4000/key/info"
 USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"
 
 # Rate limiting setting for the crawler. Turning it off may overwhelm the server and may not be permitted by the mediawiki site.
-ENABLE_RATE_LIMITING=true
+# ENABLE_RATE_LIMITING="false"
