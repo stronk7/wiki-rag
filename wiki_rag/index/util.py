@@ -132,10 +132,10 @@ def replace_previous_collection(collection_name: str, temp_collection_name: str)
         msg = f"Collection {temp_collection_name} does not exist."
         raise ValueError(msg)
 
+    # We have inserted lots of data to the collection, let's compact it.
+    logger.info(f"Compacting collection {temp_collection_name}")
+    vector.store.compact_collection(temp_collection_name)
+
     if vector.store.collection_exists(collection_name):
         vector.store.drop_collection(collection_name)
     vector.store.rename_collection(temp_collection_name, collection_name)
-
-    # We have inserted lots of date to the collection, let's compact it.
-    logger.info(f"Compacting collection {collection_name}")
-    vector.store.compact_collection(collection_name)
