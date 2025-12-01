@@ -155,6 +155,7 @@ class BaseVector(ABC):
         embeddings = OpenAIEmbeddings(
             model=embedding_model,
             dimensions=embedding_dimensions,
+            check_embedding_ctx_length=False,
         )
         return embeddings.embed_query(query.strip())
 

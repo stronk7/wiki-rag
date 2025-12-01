@@ -76,7 +76,11 @@ def index_pages(
     """Index the pages to the collection."""
     logging.getLogger("httpx").setLevel(logging.WARNING)  # Don't log (INFO) all http requests.
 
-    embeddings = OpenAIEmbeddings(model=embedding_model, dimensions=embedding_dimension)
+    embeddings = OpenAIEmbeddings(
+        model=embedding_model,
+        dimensions=embedding_dimension,
+        check_embedding_ctx_length=False,
+    )
 
     num_pages = 0
     num_sections = 0

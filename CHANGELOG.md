@@ -13,7 +13,11 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - LLM: Increase default max_completion_tokens to 1536 by @stronk7 ([8d7daba](https://github.com/moodlehq/wiki-rag/commit/8d7daba71bfc33e1a8f6a82b0bf10e1f7624057c))
 - Detail: Rename `env_template` to `dotenv.template` by @stronk7 ([f04b54d](https://github.com/moodlehq/wiki-rag/commit/f04b54d5bceb80d6d8e21658032f16d67d775def))
 - Deprecation: Stop using `get_event_loop_policy()`, deprecated in Python >= 3.14 by @stronk7 ([053157b](https://github.com/moodlehq/wiki-rag/commit/053157b155ec8bb6223dce56f6931012dda4a382))
-- Dependencies: Bump pymilvus to 2.6.4
+- Dependencies: Bump pymilvus to 2.6.4 by @stronk7 ([2a77c7e](https://github.com/moodlehq/wiki-rag/commit/2a77c7e2943c926efadb65d8b4c20c8d4e35e3e9))
+
+### Fixed
+
+- Embeddings: Solved a problem caused by recent Langchain updates
 
 ## [0.12.0] - 2025-11-03
 
