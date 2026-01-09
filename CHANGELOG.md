@@ -10,7 +10,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Changed
 
-- Dependencies: Bump pymilvus to 2.6.6
+- Dependencies: Bump pymilvus to 2.6.6 by @stronk7 ([7e80ea4](https://github.com/moodlehq/wiki-rag/commit/7e80ea488663200700502d500a40832715f06e83))
+- Dependencies: Bump all library and dev dependencies
 
 ## [0.12.1] - 2025-12-01
 
