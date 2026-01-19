@@ -1,4 +1,4 @@
-FROM python:3.12-slim AS builder
+FROM python:3.13-slim AS builder
 
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -16,7 +16,7 @@ COPY ./pyproject.toml /app/pyproject.toml
 RUN --mount=source=.git,target=.git,type=bind \
     pip install --no-cache-dir -e .
 
-FROM python:3.12-slim AS runner
+FROM python:3.13-slim AS runner
 
 WORKDIR /app/
 
