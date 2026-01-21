@@ -40,6 +40,7 @@ dependencies = [
     "fastmcp ~= 2.14.2",
     "pymilvus ~= 2.6.6",
     "python-dotenv ~= 1.2.1",
+    "pyyaml ~= 6.0.2",
     "tiktoken ~= 0.12.0",
     "tqdm ~= 4.67.1",
     "uvicorn ~= 0.40.0",
@@ -64,6 +65,7 @@ wr-index = "wiki_rag.index.main:main"
 wr-search = "wiki_rag.search.main:main"
 wr-server = "wiki_rag.server.main:main"
 wr-mcp = "wiki_rag.mcp_server.main:main"
+wr-config-update = "wiki_rag.config_update.main:main"
 
 [project.urls]
 Homepage = "https://github.com/moodlehq/wiki-rag"

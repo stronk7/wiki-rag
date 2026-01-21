@@ -1,0 +1,76 @@
+# NOTE: This is a template file. Copy this file to config.yaml and fill in the values.
+#
+# Precedence order:
+# 1) OS environment variables
+# 2) config.yaml
+# 3) .env (lowest priority, for backwards compatibility)
+#
+# You can generate a first version of this file from an existing .env using:
+#   wr-config-update --env .env --out config.yaml
+
+openai:
+  # Any OpenAI compatible provider (OpenAI, AI Proxy, Ollama, ...)
+  api_base: "https://openai.com/v1"
+  # api_key: "<<<YOUR_OPENAI_API_KEY>>>"
+
+mediawiki:
+  url: "https://your.mediawiki/base/url"
+  # Comma separated list in .env; list of ints here.
+  namespaces: [0, 4, 12]
+  # Keep as a single string for now (BC with current parsing logic).
+  excluded: "categories:Category A, Category B;wikitext:Some regex to exclude"
+  keep_templates: ["Template1", "Template2"]
+
+  # User agent for the crawler.
+  user_agent: "Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"
+
+  # Rate limiting setting for the crawler.
+  enable_rate_limiting: true
+
+storage:
+  collection_name: "your_collection_name"
+  # Defaults to PROJECT_DIR/data when empty or unset.
+  loader_dump_path: ""
+
+index:
+  vendor: "milvus"
+  milvus_url: "http://0.0.0.0:19530"
+
+models:
+  embedding_model: "your_embedding_model"
+  embedding_dimensions: 768
+  llm_model: "your_llm_model"
+  # contextualisation_model: "your_llm_model"
+
+wrapper:
+  api_base: "0.0.0.0:8080"
+  chat_max_turns: 10
+  chat_max_tokens: 1536
+  # Defaults to collection_name if unset.
+  model_name: "Your Model Name"
+
+mcp:
+  api_base: "0.0.0.0:8081"
+
+auth:
+  # Validate requests auth against these bearer tokens.
+  tokens: ["11111111", "22222222", "33333333"]
+  # Delegate bearer token auth to this URL (200 => allow)
+  url: "http://0.0.0.0:4000/key/info"
+
+# Optional: LangSmith
+langsmith:
+  tracing: false
+  prompts: false
+  prompt_prefix: ""
+  endpoint: "https://eu.api.smith.langchain.com"
+  # api_key: "<<<YOUR_LANGSMITH_API_KEY_HERE>>>"
+
+# Optional: Langfuse
+langfuse:
+  tracing: false
+  prompts: false
+  prompt_prefix: ""
+  host: "https://cloud.langfuse.com"
+  # secret_key: "<<<YOUR_LANGFUSE_SECRET_KEY_HERE>>>"
+  # public_key: "<<<YOUR_LANGFUSE_PUBLIC_KEY_HERE>>>"

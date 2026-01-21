@@ -9,7 +9,7 @@ import sys
 
 from pathlib import Path
 
-from dotenv import load_dotenv
+from wiki_rag.config import load_config
 
 import wiki_rag.vector as vector
 
@@ -33,11 +33,9 @@ def main():
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
 
-    dotenv_file = ROOT_DIR / ".env"
-    if dotenv_file.exists():
-        logger.warning("Loading environment variables from %s", dotenv_file)
-        logger.warning("Note: .env files are not supposed to be used in production. Use env secrets instead.")
-        load_dotenv(dotenv_file)
+    # Load configuration sources.
+    # Precedence order: OS env > config.yaml > .env
+    load_config()
 
     mediawiki_url = os.getenv("MEDIAWIKI_URL")
     if not mediawiki_url:
