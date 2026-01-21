@@ -6,7 +6,10 @@
 import logging
 import time
 
-import colorlog
+try:
+    import colorlog
+except ModuleNotFoundError:  # pragma: no cover
+    colorlog = None
 
 
 def setup_logging(level: str = "INFO") -> logging.Logger:
@@ -17,6 +20,17 @@ def setup_logging(level: str = "INFO") -> logging.Logger:
 
     # Set the log level explicitly
     log.setLevel(level)
+
+    if colorlog is None:
+        # Fallback to stdlib logging if optional dependency isn't installed.
+        if not log.hasHandlers():
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter(
+                "%(asctime)s.%(msecs)03dZ %(levelname)s [%(name)s] %(message)s",
+                datefmt="%Y-%m-%dT%H:%M:%S",
+            ))
+            log.addHandler(handler)
+        return log
 
     # Let's add the color handler.
     if not log.hasHandlers():

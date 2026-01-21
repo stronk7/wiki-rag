@@ -1,0 +1,110 @@
+# Wiki-RAG configuration template
+#
+# Load precedence (BC): OS env > config.yaml > .env
+#
+# IMPORTANT (secrets):
+# - Do NOT put secrets in this file.
+# - Provide secrets via OS env vars only, e.g.:
+#     OPENAI_API_KEY=...
+#     LANGSMITH_API_KEY=...
+#     LANGFUSE_PUBLIC_KEY=...
+#     LANGFUSE_SECRET_KEY=...
+
+openai:
+  # Any OpenAI-compatible provider base URL.
+  # Example: "https://api.openai.com/v1" or "http://localhost:11434/v1"
+  api_base: "https://openai.com/v1"
+
+mediawiki:
+  # MediaWiki instance base URL.
+  url: "https://your.mediawiki/base/url"
+
+  # List of namespaces (integers). Examples:
+  # - 0: Main
+  # - 4: Project
+  # - 12: Help
+  namespaces: [0, 4, 12]
+
+  # Optional: semicolon-separated list of exclusions.
+  # Same format as legacy MEDIAWIKI_EXCLUDED.
+  excluded: "categories:Category A, Category B;wikitext:Some regex to exclude"
+
+  # Optional: list of template names to keep in wiki text. Others are removed.
+  keep_templates: ["Template1", "Template2"]
+
+  # Optional: user agent for the crawler.
+  user_agent: "Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"
+
+  # Optional: rate limiting for MediaWiki requests.
+  enable_rate_limiting: true
+
+storage:
+  # Required: collection name used by the vector database.
+  collection_name: "your_collection_name"
+
+  # Optional: where JSON dumps are written/read.
+  # Defaults to PROJECT_DIR/data if omitted.
+  loader_dump_path: ""
+
+  # Optional: vector store vendor. Defaults to "milvus".
+  index_vendor: "milvus"
+
+  milvus:
+    # Milvus connection URL.
+    url: "http://0.0.0.0:19530"
+
+models:
+  # Embeddings model ID/name.
+  embedding_model: "your_embedding_model"
+
+  # Embedding dimensions (depends on the model/provider).
+  embedding_dimensions: 768
+
+  # LLM model used to generate answers.
+  llm_model: "your_llm_model"
+
+  # Optional: model used to contextualize questions (history-aware query rewrite).
+  # Set to null/empty to disable.
+  contextualisation_model: null
+
+wrapper:
+  # OpenAI-compatible wrapper host:port.
+  api_base: "0.0.0.0:8080"
+
+  # Optional: limit OpenAI history turns (0 = unlimited).
+  chat_max_turns: 10
+
+  # Optional: limit OpenAI history tokens (0 = unlimited).
+  chat_max_tokens: 1536
+
+  # Optional: public model name shown by /v1/models.
+  # Defaults to `storage.collection_name` if omitted.
+  model_name: "Your Model Name"
+
+mcp:
+  # MCP server host:port.
+  api_base: "0.0.0.0:8081"
+
+auth:
+  # Optional: comma-separated bearer tokens (local auth).
+  # NOTE: if you treat these as secrets, provide via OS env `AUTH_TOKENS` instead.
+  tokens: "11111111,22222222,33333333"
+
+  # Optional: remote auth URL that returns 200 for valid tokens.
+  url: "http://0.0.0.0:4000/key/info"
+
+observability:
+  # Optional: enable tracing.
+  langsmith_tracing: false
+  langsmith_endpoint: "https://eu.api.smith.langchain.com"
+
+  langfuse_tracing: false
+  langfuse_host: "https://cloud.langfuse.com"
+
+prompts:
+  # Optional: enable prompt management.
+  langsmith_enabled: false
+  langsmith_prefix: ""
+
+  langfuse_enabled: false
+  langfuse_prefix: ""

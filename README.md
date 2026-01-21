@@ -19,12 +19,20 @@ To get started with Wiki-RAG, ensure you have the following:
 
 ## Configuration
 
-1. **Set Environment Variables (to be replaced soon by `config.yml`file)**
+1. **Configuration (`config.yaml`, preferred)**
+   - Create `config.yaml` in the repository root.
+   - During the BC period, configuration is loaded with this precedence: `OS env` > `config.yaml` > legacy `.env`.
+   - You can generate a starter `config.yaml` from an existing `.env`:
+     ```bash
+     wr-config-update
+     ```
+
+2. **Legacy `.env` (BC)**
    - Using the [env_template](dotenv.template) file as source, create a new `.env` file:
      ```bash
      cp dotenv.template .env
      ```
-   - Edit it to suit your needs (mediawiki site and namespaces or exclusions, models to use for both embeddings and generation, etc.)
+   - Note: secrets must be provided via OS environment variables (e.g. `OPENAI_API_KEY`). `wr-config-update` will not write secrets into YAML.
 
 ## Installation
 

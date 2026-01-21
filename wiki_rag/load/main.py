@@ -10,9 +10,8 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.config import load_config_to_env
 from wiki_rag.load.util import (
     get_mediawiki_pages_list,
     get_mediawiki_parsed_pages,
@@ -30,11 +29,12 @@ def main():
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
 
-    dotenv_file = ROOT_DIR / ".env"
-    if dotenv_file.exists():
-        logger.warning("Loading environment variables from %s", dotenv_file)
+    result = load_config_to_env(root_dir=ROOT_DIR)
+    if result.loaded_from_yaml:
+        logger.warning("Loaded configuration from %s", result.config_path)
+    if result.loaded_dotenv:
+        logger.warning("Loaded environment variables from legacy .env")
         logger.warning("Note: .env files are not supposed to be used in production. Use env secrets instead.")
-        load_dotenv(dotenv_file)
 
     mediawiki_url = os.getenv("MEDIAWIKI_URL")
     if not mediawiki_url:

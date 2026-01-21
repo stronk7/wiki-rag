@@ -6,11 +6,15 @@
 import logging
 import unittest
 
-import colorlog  # Import necessary to check handler type
+try:
+    import colorlog  # type: ignore
+except ModuleNotFoundError:  # pragma: no cover
+    colorlog = None
 
 from wiki_rag.util import setup_logging
 
 
+@unittest.skipIf(colorlog is None, "colorlog dependency not installed")
 class TestUtil(unittest.TestCase):
 
     def setUp(self):
