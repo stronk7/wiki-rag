@@ -8,9 +8,19 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Added
+
+- Configuration: Add `config.yaml` support for better configuration management by @opencode ([commit-hash])
+- Configuration: Add `wr-config-update` utility to convert `.env` files to `config.yaml` format by @opencode
+- Configuration: Add new `Config` class with support for both YAML and dotenv files by @opencode
+- Configuration: Add configuration template file `config.yaml.template` by @opencode
+
 ### Changed
 
 - Docker: Update the docker image to Python 3.13
+- Configuration: All executables now use the new configuration system with YAML support by @opencode
+- Dependencies: Add PyYAML ~6.0.2 to support YAML configuration files by @opencode
+- Dependencies: Remove direct `os.getenv` usage in favor of the new Config class by @opencode
 
 ## [0.12.2] - 2026-01-09
 

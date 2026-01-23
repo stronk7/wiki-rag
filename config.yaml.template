@@ -1,0 +1,62 @@
+# Wiki-RAG Configuration Template
+#
+# Copy this file to config.yaml and fill in the required values.
+
+openai:
+  api_base: "https://openai.com/v1"  # OpenAI API base URL
+  api_key: "<<<YOUR_OPENAI_API_KEY>>>"  # Required
+
+mediawiki:
+  url: "https://your.mediawiki/base/url"  # MediaWiki instance base URL
+  namespaces: [0, 4, 12]  # Comma-separated list of namespace IDs
+  excluded:
+    categories: ["Category A", "Category B"]  # Categories to exclude
+    wikitext: ["Some regex to exclude"]  # Wikitext patterns to exclude
+  keep_templates: ["Template1", "Template2"]  # Templates to preserve
+
+collection:
+  name: "your_collection_name"  # Database collection name
+  dump_path: ""  # Path to dump data (defaults to PROJECT_DIR/data)
+
+milvus:
+  url: "http://0.0.0.0:19530"  # Milvus connection URL
+
+models:
+  embedding: "your_embedding_model"  # Embedding model name
+  embedding_dimensions: 768  # Dimensionality of embedding vectors
+  llm: "your_llm_model"  # Model for generating answers
+  # contextualisation: "your_llm_model"  # Model for query contextualization (optional)
+
+wrapper:
+  api_base: "0.0.0.0:8080"  # OpenAI wrapper API base URL
+  chat_max_turns: 10  # Max chat history turns (0 = no limit)
+  chat_max_tokens: 1536  # Max chat history tokens (0 = no limit)
+  model_name: "Your Model Name"  # Public model name (defaults to collection.name)
+
+mcp:
+  api_base: "0.0.0.0:8081"  # MCP server API base URL
+
+auth:
+  tokens: ["11111111", "22222222", "33333333"]  # Bearer tokens for auth
+  # url: "http://0.0.0.0:4000/key/info"  # Auth delegation URL (optional)
+
+langsmith:
+  # tracing: false  # Enable LangSmith tracing
+  # prompts: false  # Use LangSmith prompts
+  # prompt_prefix: "your_prefix/"  # Prompt prefix for LangSmith
+  # endpoint: "https://eu.api.smith.langchain.com"
+  # api_key: "<<<YOUR_LANGSMITH_API_KEY_HERE>>>"
+
+langfuse:
+  # tracing: false  # Enable Langfuse tracing
+  # prompts: false  # Use Langfuse prompts
+  # prompt_prefix: "your_prefix-"
+  # host: "https://cloud.langfuse.com"
+  # secret_key: "<<<YOUR_LANGFUSE_SECRET_KEY_HERE>>>"
+  # public_key: "<<<YOUR_LANGFUSE_PUBLIC_KEY_HERE>>>"
+
+crawler:
+  user_agent: "Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"
+  rate_limiting: true  # Enable rate limiting
+
+index_vendor: "milvus"  # Vector index vendor (milvus)

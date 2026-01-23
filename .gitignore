@@ -2,6 +2,7 @@
 .env*
 # Some configuration files
 config*.yml
+config*.yaml
 credentials.json
 # Any storage directory
 storage*/

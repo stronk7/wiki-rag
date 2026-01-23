@@ -21,6 +21,7 @@ from langchain_core.messages import BaseMessage
 from pydantic import UUID4, BaseModel
 
 from wiki_rag import LOG_LEVEL, server
+from wiki_rag.config import get_config
 
 logger = logging.getLogger(__name__)
 
@@ -186,13 +187,13 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
 def _check_token_with_local_env(token: str) -> bool:
     """Check the local environment variable to validate the token."""
-    tokens = os.getenv("AUTH_TOKENS")
+    config = get_config()
+    tokens = config.get_list("auth.tokens", [])
     if not tokens:
         return False
 
-    logger.info("Checking token with local env variable: AUTH_TOKENS")
-    allowed_tokens = [token.strip() for token in tokens.split(",")]
-    return True if allowed_tokens and token in allowed_tokens else False
+    logger.info("Checking token with local config: auth.tokens")
+    return token in tokens
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
@@ -201,7 +202,8 @@ def _check_token_with_service(token: str) -> bool:
 
     Cached for 5 minutes to avoid hitting the service too often.
     """
-    auth_url = os.getenv("AUTH_URL")
+    config = get_config()
+    auth_url = config.get("auth.url")
     if not auth_url:
         return False
 

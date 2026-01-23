@@ -4,16 +4,15 @@
 """Main entry point for the document indexer."""
 
 import logging
-import os
 import sys
 
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 import wiki_rag.vector as vector
 
-from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag import ROOT_DIR, __version__
+from wiki_rag import LOG_LEVEL
+from wiki_rag.config import get_config
 from wiki_rag.index.util import (
     create_temp_collection_schema,
     index_pages,
@@ -30,34 +29,18 @@ def main():
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-index starting up...")
 
-    # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
 
-    dotenv_file = ROOT_DIR / ".env"
-    if dotenv_file.exists():
-        logger.warning("Loading environment variables from %s", dotenv_file)
-        logger.warning("Note: .env files are not supposed to be used in production. Use env secrets instead.")
-        load_dotenv(dotenv_file)
+    config = get_config()
 
-    mediawiki_url = os.getenv("MEDIAWIKI_URL")
-    if not mediawiki_url:
-        logger.error("Mediawiki URL not found in environment. Exiting.")
-        sys.exit(1)
+    mediawiki_url = config.get("mediawiki.url")
+    mediawiki_namespaces = config.get_int_list("mediawiki.namespaces")
 
-    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES")
-    if not mediawiki_namespaces:
-        logger.error("Mediawiki namespaces not found in environment. Exiting.")
-        sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(",")
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
-    mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
-
-    loader_dump_path = os.getenv("LOADER_DUMP_PATH")
-    if loader_dump_path:
-        loader_dump_path = Path(loader_dump_path)
+    loader_dump_path_str = config.get("collection.dump_path")
+    if loader_dump_path_str:
+        loader_dump_path = Path(loader_dump_path_str)
     else:
         loader_dump_path = ROOT_DIR / "data"
-    # If the directory does not exist, create it.
     if not loader_dump_path.exists():
         logger.warning(f"Data directory {loader_dump_path} not found. Creating it.")
         try:
@@ -66,40 +49,18 @@ def main():
             logger.error(f"Could not create data directory {loader_dump_path}. Exiting.")
             sys.exit(1)
 
-    collection_name = os.getenv("COLLECTION_NAME")
-    if not collection_name:
-        logger.error("Collection name not found in environment. Exiting.")
-        sys.exit(1)
+    collection_name = config.get("collection.name")
+    index_vendor = config.get("index_vendor", "milvus")
 
-    index_vendor = os.getenv("INDEX_VENDOR")
-    if not index_vendor:
-        logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
-        index_vendor = "milvus"
+    user_agent = config.get("crawler.user_agent", f"Moodle Research Crawler/{{version}} (https://git.in.moodle.com/research)")
+    user_agent = user_agent.format(version=__version__)
 
-    user_agent = os.getenv("USER_AGENT")
-    if not user_agent:
-        logger.info("User agent not found in environment. Using default.")
-        user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
-    user_agent = f"{user_agent.format(version=__version__)}"
+    embedding_model = config.get("models.embedding")
+    embedding_dimensions = config.get_int("models.embedding_dimensions")
 
-    embedding_model = os.getenv("EMBEDDING_MODEL")
-    if not embedding_model:
-        logger.error("Embedding model not found in environment. Exiting.")
-        sys.exit(1)
-
-    embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
-    if not embedding_dimensions:
-        logger.error("Embedding dimensions not found in environment. Exiting.")
-        sys.exit(1)
-    embedding_dimensions = int(embedding_dimensions)
-
-    vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
+    vector.store = load_vector_store(index_vendor)
 
     input_candidate = ""
-    # TODO: Implement CLI argument to accept the input file here.
-
-    # No candidate yet, let's find the last file in the directory (with collection_name
-    # as prefix to filter out other files).
     for file in sorted(loader_dump_path.iterdir()):
         if file.is_file() and file.name.startswith(f"{collection_name}-") and file.name.endswith(".json"):
             input_candidate = file
@@ -107,12 +68,10 @@ def main():
         logger.error(f"No input file found in {loader_dump_path} with collection name {collection_name}. Exiting.")
         sys.exit(1)
 
-    # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
     input_file = loader_dump_path / input_candidate
 
     logger.info(f"Loading parsed pages from JSON: {input_file}, namespaces: {mediawiki_namespaces}")
     information = load_parsed_information(input_file)
-    # TODO: Multiple site information handling should be implemented here.
     pages = information["sites"][0]["pages"]
     logger.info(f"Loaded {len(pages)} pages from JSON file")
 

@@ -40,10 +40,12 @@ class MilvusVector(BaseVector):
 
     def __init__(self) -> None:
         """Initialize the Milvus backend."""
-        # TODO: We'll need to change this to use config when we have it (vs env).
-        self.uri: str = os.getenv("MILVUS_URL", "")
+        from wiki_rag.config import get_config
+
+        config = get_config()
+        self.uri: str = config.get("milvus.url", "")
         if not self.uri:
-            logger.error("Milvus URL not found in environment. Exiting.")
+            logger.error("Milvus URL not found in configuration. Exiting.")
             sys.exit(1)
 
     # BaseVector interface.

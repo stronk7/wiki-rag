@@ -119,24 +119,26 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
 
     This function results are cached for 5 minutes to avoid unnecessary calls to the LangSmith API.
     """
+    from wiki_rag.config import get_config
+
+    config = get_config()
+
     chat_prompt = ChatPromptTemplate([])
-    prefixed_prompt_name = prompt_name  # We'll add the prefix later, depending on the provider.
+    prefixed_prompt_name = prompt_name
     prompt_provider = "local"
 
-    # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
-        if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
-            prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
+        if config.get_bool("langsmith.prompts", False):
+            prefixed_prompt_name = f"{config.get('langsmith.prompt_prefix', '')}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
             prompt_provider = "LangSmith"
             chat_prompt = Client().pull_prompt(prefixed_prompt_name)
-        elif os.getenv("LANGFUSE_PROMPTS", "false") == "true":
+        elif config.get_bool("langfuse.prompts", False):
             langfuse = Langfuse()
-            prefixed_prompt_name = f"{os.getenv("LANGFUSE_PROMPT_PREFIX")}{prompt_name}"
+            prefixed_prompt_name = f"{config.get('langfuse.prompt_prefix', '')}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from Langfuse.")
             prompt_provider = "Langfuse"
             langfuse_prompt = langfuse.get_prompt(prefixed_prompt_name)
-            # Convert the prompt to a LangChain compatible one.
             chat_prompt = convert_prompts_for_rag_from_langfuse(langfuse_prompt)
             langfuse.shutdown()
         else:
