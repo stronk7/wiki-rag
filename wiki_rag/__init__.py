@@ -19,3 +19,11 @@ try:
     __version__ = version(__name__)
 except PackageNotFoundError:
     pass
+
+# Import config module
+from wiki_rag.config import ConfigManager
+
+
+# Create config directory if it doesn't exist
+if not (ROOT_DIR / "config").exists():
+    (ROOT_DIR / "config").mkdir(exist_ok=True)
