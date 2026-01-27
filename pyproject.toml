@@ -64,6 +64,7 @@ wr-index = "wiki_rag.index.main:main"
 wr-search = "wiki_rag.search.main:main"
 wr-server = "wiki_rag.server.main:main"
 wr-mcp = "wiki_rag.mcp_server.main:main"
+wr-config-update = "wiki_rag.config_update:main"
 
 [project.urls]
 Homepage = "https://github.com/moodlehq/wiki-rag"

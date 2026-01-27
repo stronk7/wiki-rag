@@ -25,6 +25,7 @@ from pymilvus import (
     WeightedRanker,
 )
 
+from wiki_rag.config import config
 from wiki_rag.vector import BaseVector
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 class MilvusVector(BaseVector):
     """Milvus backend vector.
 
-    Requires MILVUS_URL to be defined in environment.
+    Requires MILVUS_URL to be defined in environment or database.milvus_url in config.yaml.
     Milvus connection string, e.g. 'http://localhost:19530'
     or 'https://user:password@localhost:19530'.  # pragma: allowlist secret
     """
@@ -41,9 +42,9 @@ class MilvusVector(BaseVector):
     def __init__(self) -> None:
         """Initialize the Milvus backend."""
         # TODO: We'll need to change this to use config when we have it (vs env).
-        self.uri: str = os.getenv("MILVUS_URL", "")
+        self.uri: str = config.get("database.milvus_url", "")
         if not self.uri:
-            logger.error("Milvus URL not found in environment. Exiting.")
+            logger.error("Milvus URL not found in config or environment. Exiting.")
             sys.exit(1)
 
     # BaseVector interface.
