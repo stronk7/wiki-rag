@@ -1,0 +1,83 @@
+#  Copyright (c) 2025, Moodle HQ - Research
+#  SPDX-License-Identifier: BSD-3-Clause
+
+# Wiki-RAG Configuration File
+# This is the new YAML-based configuration format for wiki-rag.
+# It replaces the old dotenv (.env) format while maintaining backward compatibility.
+
+# Any OpenAI compatible provider (OpenAI, AI Proxy, Ollama, ...)
+openai:
+  api_base: "https://openai.com/v1"
+  api_key: "<<<YOUR_OPENAI_API_KEY>>>"
+
+# Mediawiki instance configuration
+mediawiki:
+  url: "https://your.mediawiki/base/url"
+  # Comma separated list (general and others, see https://www.mediawiki.org/wiki/Manual:Namespace#Built-in_namespaces)
+  namespaces: [0, 4, 12]
+  excluded: "categories:Category A, Category B;wikitext:Some regex to exclude"
+  keep_templates: ["Template1", "Template2"]
+
+# Database collection configuration
+collection:
+  name: "your_collection_name"
+  # Defaults to PROJECT_DIR/data if not specified
+  dump_path: null
+
+# Milvus vector database configuration
+milvus:
+  url: "http://0.0.0.0:19530"
+
+# AI Models configuration
+models:
+  embedding: "your_embedding_model"
+  # Specify the default real embedding dims used. Some providers don't allow to change this.
+  embedding_dimensions: 768
+  # Model used to generate the answers
+  llm: "your_llm_model"
+  # Model used to contextualize the questions for RAG (optional feature)
+  contextualisation: null
+
+# OpenAI wrapper configuration
+wrapper:
+  api_base: "0.0.0.0:8080"
+  # To limit the number of OpenAI history turns allowed in a chat (0 = no limit)
+  chat_max_turns: 10
+  # To limit the number of OpenAI history tokens allowed in a chat (0 = no limit)
+  chat_max_tokens: 1536
+  # Public name that the wrapper will use to identify itself as a model
+  model_name: null
+
+# Model Context Protocol (MCP) configuration
+mcp:
+  api_base: "0.0.0.0:8081"
+
+# Authentication configuration
+auth:
+  # Validate requests auth against these bearer tokens
+  tokens: ["11111111", "22222222", "33333333"]
+  # Delegate bearer token auth to this URL (200 => allow)
+  url: "http://0.0.0.0:4000/key/info"
+
+# Langsmith observability configuration (optional)
+langsmith:
+  tracing: false
+  prompts: false
+  prompt_prefix: "your_prefix/"
+  endpoint: "https://eu.api.smith.langchain.com"
+  api_key: null
+
+# Langfuse observability configuration (optional)
+langfuse:
+  tracing: false
+  prompts: false
+  prompt_prefix: "your_prefix-"
+  host: "https://cloud.langfuse.com"
+  secret_key: null
+  public_key: null
+
+# Crawler configuration
+crawler:
+  user_agent: "Moodle Research Wiki-RAG Crawler"
+  # Rate limiting setting for the crawler. Turning it off may overwhelm the server
+  enable_rate_limiting: true
