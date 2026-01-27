@@ -13,13 +13,13 @@ import traceback
 
 from pathlib import Path
 
-from dotenv import load_dotenv
 from langchain_core.messages import AIMessageChunk
 from langfuse.langchain import CallbackHandler
 
 import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.config import settings
 from wiki_rag.search.util import ContextSchema, build_graph
 from wiki_rag.util import setup_logging
 from wiki_rag.vector import load_vector_store
@@ -34,26 +34,19 @@ async def run():
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
 
-    dotenv_file = ROOT_DIR / ".env"
-    if dotenv_file.exists():
-        logger.warning("Loading environment variables from %s", dotenv_file)
-        logger.warning("Note: .env files are not supposed to be used in production. Use env secrets instead.")
-        load_dotenv(dotenv_file)
-
-    mediawiki_url = os.getenv("MEDIAWIKI_URL")
+    mediawiki_url = settings.get_str("MEDIAWIKI_URL")
     if not mediawiki_url:
-        logger.error("Mediawiki URL not found in environment. Exiting.")
+        logger.error("Mediawiki URL not found in configuration. Exiting.")
         sys.exit(1)
 
-    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES")
+    mediawiki_namespaces = settings.get_list("MEDIAWIKI_NAMESPACES")
     if not mediawiki_namespaces:
-        logger.error("Mediawiki namespaces not found in environment. Exiting.")
+        logger.error("Mediawiki namespaces not found in configuration. Exiting.")
         sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(",")
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
+    mediawiki_namespaces = [int(ns) for ns in mediawiki_namespaces]  # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 
-    loader_dump_path = os.getenv("LOADER_DUMP_PATH")
+    loader_dump_path = settings.get_str("LOADER_DUMP_PATH")
     if loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
     else:
@@ -67,94 +60,93 @@ async def run():
             logger.error(f"Could not create data directory {loader_dump_path}. Exiting.")
             sys.exit(1)
 
-    collection_name = os.getenv("COLLECTION_NAME")
+    collection_name = settings.get_str("COLLECTION_NAME")
     if not collection_name:
-        logger.error("Collection name not found in environment. Exiting.")
+        logger.error("Collection name not found in configuration. Exiting.")
         sys.exit(1)
 
-    index_vendor = os.getenv("INDEX_VENDOR")
+    index_vendor = settings.get_str("INDEX_VENDOR")
     if not index_vendor:
-        logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
+        logger.warning("Index vendor (INDEX_VENDOR) not found in configuration. Defaulting to 'milvus'.")
         index_vendor = "milvus"
 
     # If LangSmith tracing is enabled, put a name for the project and verify that all required env vars are set.
-    if os.getenv("LANGSMITH_TRACING", "false") == "true":
+    if settings.get_bool("LANGSMITH_TRACING", False):
         os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
-        if os.getenv("LANGSMITH_ENDPOINT") is None:
-            logger.error("LANGSMITH_ENDPOINT (required if tracing is enabled) not found in environment. Exiting.")
+        if settings.get("LANGSMITH_ENDPOINT") is None:
+            logger.error("LANGSMITH_ENDPOINT (required if tracing is enabled) not found in configuration. Exiting.")
             sys.exit(1)
-        if os.getenv("LANGSMITH_API_KEY") is None:
-            logger.error("LANGSMITH_API_KEY (required if tracing is enabled) not found in environment. Exiting.")
+        if settings.get("LANGSMITH_API_KEY") is None:
+            logger.error("LANGSMITH_API_KEY (required if tracing is enabled) not found in configuration. Exiting.")
             sys.exit(1)
     # If LangSmith prompts are enabled, put a name for the project and verify that all required env vars are set.
-    if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
+    if settings.get_bool("LANGSMITH_PROMPTS", False):
         os.environ["LANGSMITH_PROJECT"] = f"{collection_name}"
-        os.environ["LANGSMITH_PROMPT_PREFIX"] = os.environ["LANGSMITH_PROMPT_PREFIX"] or ""
-        if os.getenv("LANGSMITH_ENDPOINT") is None:
-            logger.error("LANGSMITH_ENDPOINT (required if prompts are enabled) not found in environment. Exiting.")
+        os.environ["LANGSMITH_PROMPT_PREFIX"] = settings.get_str("LANGSMITH_PROMPT_PREFIX", "")
+        if settings.get("LANGSMITH_ENDPOINT") is None:
+            logger.error("LANGSMITH_ENDPOINT (required if prompts are enabled) not found in configuration. Exiting.")
             sys.exit(1)
-        if os.getenv("LANGSMITH_API_KEY") is None:
-            logger.error("LANGSMITH_API_KEY (required if prompts are enabled) not found in environment. Exiting.")
+        if settings.get("LANGSMITH_API_KEY") is None:
+            logger.error("LANGSMITH_API_KEY (required if prompts are enabled) not found in configuration. Exiting.")
             sys.exit(1)
 
     # If Langfuse tracing is enabled, verify that all required env vars are set.
-    if os.getenv("LANGFUSE_TRACING", "false") == "true":
-        if os.getenv("LANGFUSE_HOST") is None:
+    if settings.get_bool("LANGFUSE_TRACING", False):
+        if settings.get("LANGFUSE_HOST") is None:
             logger.error(
-                "LANGFUSE_HOST (required if tracing is enabled) not found in environment. Exiting."
+                "LANGFUSE_HOST (required if tracing is enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
-        if os.getenv("LANGFUSE_PUBLIC_KEY") is None:
+        if settings.get("LANGFUSE_PUBLIC_KEY") is None:
             logger.error(
-                "LANGFUSE_PUBLIC_KEY (required if tracing is enabled) not found in environment. Exiting."
+                "LANGFUSE_PUBLIC_KEY (required if tracing is enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
-        if os.getenv("LANGFUSE_SECRET_KEY") is None:
+        if settings.get("LANGFUSE_SECRET_KEY") is None:
             logger.error(
-                "LANGFUSE_SECRET_KEY (required if tracing is enabled) not found in environment. Exiting."
+                "LANGFUSE_SECRET_KEY (required if tracing is enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
     # If Langfuse prompts are enabled, verify that all required env vars are set.
-    if os.getenv("LANGFUSE_PROMPTS", "false") == "true":
-        if os.getenv("LANGFUSE_HOST") is None:
+    if settings.get_bool("LANGFUSE_PROMPTS", False):
+        if settings.get("LANGFUSE_HOST") is None:
             logger.error(
-                "LANGFUSE_HOST (required if prompts are enabled) not found in environment. Exiting."
+                "LANGFUSE_HOST (required if prompts are enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
-        if os.getenv("LANGFUSE_PUBLIC_KEY") is None:
+        if settings.get("LANGFUSE_PUBLIC_KEY") is None:
             logger.error(
-                "LANGFUSE_PUBLIC_KEY (required if prompts are enabled) not found in environment. Exiting."
+                "LANGFUSE_PUBLIC_KEY (required if prompts are enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
-        if os.getenv("LANGFUSE_SECRET_KEY") is None:
+        if settings.get("LANGFUSE_SECRET_KEY") is None:
             logger.error(
-                "LANGFUSE_SECRET_KEY (required if prompts are enabled) not found in environment. Exiting."
+                "LANGFUSE_SECRET_KEY (required if prompts are enabled) not found in configuration. Exiting."
             )
             sys.exit(1)
 
-    user_agent = os.getenv("USER_AGENT")
+    user_agent = settings.get_str("USER_AGENT")
     if not user_agent:
-        logger.info("User agent not found in environment. Using default.")
+        logger.info("User agent not found in configuration. Using default.")
         user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
     user_agent = f"{user_agent.format(version=__version__)}"
 
-    embedding_model = os.getenv("EMBEDDING_MODEL")
+    embedding_model = settings.get_str("EMBEDDING_MODEL")
     if not embedding_model:
-        logger.error("Embedding model not found in environment. Exiting.")
+        logger.error("Embedding model not found in configuration. Exiting.")
         sys.exit(1)
 
-    embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
+    embedding_dimensions = settings.get_int("EMBEDDING_DIMENSIONS")
     if not embedding_dimensions:
-        logger.error("Embedding dimensions not found in environment. Exiting.")
+        logger.error("Embedding dimensions not found in configuration. Exiting.")
         sys.exit(1)
-    embedding_dimensions = int(embedding_dimensions)
 
-    llm_model = os.getenv("LLM_MODEL")
+    llm_model = settings.get_str("LLM_MODEL")
     if not llm_model:
-        logger.error("LLM model not found in environment. Exiting.")
+        logger.error("LLM model not found in configuration. Exiting.")
         sys.exit(1)
 
-    contextualisation_model = os.getenv("CONTEXTUALISATION_MODEL")
+    contextualisation_model = settings.get_str("CONTEXTUALISATION_MODEL")
 
     vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
 
@@ -198,7 +190,7 @@ async def run():
     # If we want to use langfuse, let's instantiate the handler here, only once
     # (doing that in the server would create a new handler for each request and has
     # a big impact on threads and performance).
-    if os.getenv("LANGFUSE_TRACING", "false") == "true":
+    if settings.get_bool("LANGFUSE_TRACING", False):
         context["langfuse_callback"] = CallbackHandler()
 
     logger.info("Building the graph")

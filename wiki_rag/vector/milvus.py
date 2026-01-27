@@ -9,7 +9,6 @@ use the complete SDKs is a good recommendation.
 """
 
 import logging
-import os
 import sys
 
 from typing import Any
@@ -25,6 +24,7 @@ from pymilvus import (
     WeightedRanker,
 )
 
+from wiki_rag.config import settings
 from wiki_rag.vector import BaseVector
 
 logger = logging.getLogger(__name__)
@@ -33,17 +33,16 @@ logger = logging.getLogger(__name__)
 class MilvusVector(BaseVector):
     """Milvus backend vector.
 
-    Requires MILVUS_URL to be defined in environment.
+    Requires MILVUS_URL to be defined in configuration.
     Milvus connection string, e.g. 'http://localhost:19530'
     or 'https://user:password@localhost:19530'.  # pragma: allowlist secret
     """
 
     def __init__(self) -> None:
         """Initialize the Milvus backend."""
-        # TODO: We'll need to change this to use config when we have it (vs env).
-        self.uri: str = os.getenv("MILVUS_URL", "")
+        self.uri: str = settings.get_str("MILVUS_URL", "")
         if not self.uri:
-            logger.error("Milvus URL not found in environment. Exiting.")
+            logger.error("MILVUS_URL not found in configuration. Exiting.")
             sys.exit(1)
 
     # BaseVector interface.

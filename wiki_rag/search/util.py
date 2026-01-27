@@ -30,6 +30,7 @@ from langsmith.client import Client
 import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL
+from wiki_rag.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -125,14 +126,14 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
 
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
-        if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
-            prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
+        if settings.get_bool("LANGSMITH_PROMPTS", False):
+            prefixed_prompt_name = f"{settings.get_str('LANGSMITH_PROMPT_PREFIX', '')}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
             prompt_provider = "LangSmith"
             chat_prompt = Client().pull_prompt(prefixed_prompt_name)
-        elif os.getenv("LANGFUSE_PROMPTS", "false") == "true":
+        elif settings.get_bool("LANGFUSE_PROMPTS", False):
             langfuse = Langfuse()
-            prefixed_prompt_name = f"{os.getenv("LANGFUSE_PROMPT_PREFIX")}{prompt_name}"
+            prefixed_prompt_name = f"{settings.get_str('LANGFUSE_PROMPT_PREFIX', '')}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from Langfuse.")
             prompt_provider = "Langfuse"
             langfuse_prompt = langfuse.get_prompt(prefixed_prompt_name)

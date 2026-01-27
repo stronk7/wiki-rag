@@ -20,6 +20,7 @@ from langchain_community.adapters import openai
 from langchain_core.messages import BaseMessage
 from pydantic import UUID4, BaseModel
 
+from wiki_rag.config import settings
 from wiki_rag import LOG_LEVEL, server
 
 logger = logging.getLogger(__name__)
@@ -186,13 +187,12 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
 def _check_token_with_local_env(token: str) -> bool:
     """Check the local environment variable to validate the token."""
-    tokens = os.getenv("AUTH_TOKENS")
-    if not tokens:
+    allowed_tokens = settings.get_list("AUTH_TOKENS")
+    if not allowed_tokens:
         return False
 
     logger.info("Checking token with local env variable: AUTH_TOKENS")
-    allowed_tokens = [token.strip() for token in tokens.split(",")]
-    return True if allowed_tokens and token in allowed_tokens else False
+    return token in allowed_tokens
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
@@ -201,7 +201,7 @@ def _check_token_with_service(token: str) -> bool:
 
     Cached for 5 minutes to avoid hitting the service too often.
     """
-    auth_url = os.getenv("AUTH_URL")
+    auth_url = settings.get_str("AUTH_URL")
     if not auth_url:
         return False
 

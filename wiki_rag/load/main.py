@@ -13,6 +13,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.config import settings
 from wiki_rag.load.util import (
     get_mediawiki_pages_list,
     get_mediawiki_parsed_pages,
@@ -30,26 +31,19 @@ def main():
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
 
-    dotenv_file = ROOT_DIR / ".env"
-    if dotenv_file.exists():
-        logger.warning("Loading environment variables from %s", dotenv_file)
-        logger.warning("Note: .env files are not supposed to be used in production. Use env secrets instead.")
-        load_dotenv(dotenv_file)
-
-    mediawiki_url = os.getenv("MEDIAWIKI_URL")
+    mediawiki_url = settings.get_str("MEDIAWIKI_URL")
     if not mediawiki_url:
-        logger.error("Mediawiki URL not found in environment. Exiting.")
+        logger.error("Mediawiki URL not found in configuration. Exiting.")
         sys.exit(1)
 
-    mediawiki_namespaces = os.getenv("MEDIAWIKI_NAMESPACES")
+    mediawiki_namespaces = settings.get_list("MEDIAWIKI_NAMESPACES")
     if not mediawiki_namespaces:
-        logger.error("Mediawiki namespaces not found in environment. Exiting.")
+        logger.error("Mediawiki namespaces not found in configuration. Exiting.")
         sys.exit(1)
-    mediawiki_namespaces = mediawiki_namespaces.split(",")
-    mediawiki_namespaces = [int(ns.strip()) for ns in mediawiki_namespaces]  # no whitespace and int.
+    mediawiki_namespaces = [int(ns) for ns in mediawiki_namespaces]  # no whitespace and int.
     mediawiki_namespaces = list(set(mediawiki_namespaces))  # unique
 
-    loader_dump_path = os.getenv("LOADER_DUMP_PATH")
+    loader_dump_path = settings.get_str("LOADER_DUMP_PATH")
     if loader_dump_path:
         loader_dump_path = Path(loader_dump_path)
     else:
@@ -67,7 +61,7 @@ def main():
     # separated list of values, for example:
     # MEDIAWIKI_EXCLUDED="categories:Plugin, Contributed code;wikitext:Hi world, ho world
     # TODO: Move this also to the config YAML file.
-    excluded = os.getenv("MEDIAWIKI_EXCLUDED")
+    excluded = settings.get_str("MEDIAWIKI_EXCLUDED")
     exclusions = {}
     # Let's process the exclusions and return them in a nice dict.
     if excluded:
@@ -78,43 +72,30 @@ def main():
     logger.info(f"Applying exclusions: {exclusions}")
 
     # The list of templates, comma separated, that we want to keep in the wiki text. Others will be removed.
-    keep_templates = os.getenv("MEDIAWIKI_KEEP_TEMPLATES")
-    if keep_templates:
-        keep_templates = [template.strip() for template in keep_templates.split(",")]
-    else:
-        keep_templates = []
+    keep_templates = settings.get_list("MEDIAWIKI_KEEP_TEMPLATES")
     logger.info(f"Keeping templates: {keep_templates}")
 
-    collection_name = os.getenv("COLLECTION_NAME")
+    collection_name = settings.get_str("COLLECTION_NAME")
     if not collection_name:
-        logger.error("Collection name not found in environment. Exiting.")
+        logger.error("Collection name not found in configuration. Exiting.")
         sys.exit(1)
     # The dump datetime is now, before starting the loading. We use also for the filename.
     dump_datetime = datetime.now(UTC).replace(microsecond=0)
     dump_filename = loader_dump_path / f"{collection_name}-{dump_datetime.strftime('%Y-%m-%d-%H-%M')}.json"
 
-    user_agent = os.getenv("USER_AGENT")
+    user_agent = settings.get_str("USER_AGENT")
     if not user_agent:
-        logger.info("User agent not found in environment. Using default.")
+        logger.info("User agent not found in configuration. Using default.")
         user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
     user_agent = f"{user_agent.format(version=__version__)}"
 
-    enable_rate_limiting_setting: str | None = os.getenv("ENABLE_RATE_LIMITING")
-    if not enable_rate_limiting_setting:
-        logger.info("ENABLE_RATE_LIMITING setting not found in environment. Using the default value 'true'")
-        enable_rate_limiting_setting = "true"
+    # Default to True unless explicitly set to false
+    enable_rate_limiting = settings.get_bool("ENABLE_RATE_LIMITING", True)
 
-    enable_rate_limiting_setting = enable_rate_limiting_setting.lower()
-
-    if enable_rate_limiting_setting == "true":
-        enable_rate_limiting = True
+    if enable_rate_limiting:
         logger.info("Rate limiting is enabled.")
-    elif enable_rate_limiting_setting == "false":
-        enable_rate_limiting = False
-        logger.info("Rate limiting is disabled.")
     else:
-        logger.error("ENABLE_RATE_LIMITING environment variable can only get values 'true' or 'false'. Exiting.")
-        sys.exit(1)
+        logger.info("Rate limiting is disabled.")
 
     logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
     pages = get_mediawiki_pages_list(
