@@ -88,6 +88,23 @@ class MilvusVector(BaseVector):
         client.compact(name)
         client.close()
 
+    def delete_by_page_ids(self, collection_name: str, page_ids: list[int]) -> None:
+        """Delete all sections belonging to the given page IDs from the Milvus collection.
+
+        Args:
+            collection_name: Target Milvus collection.
+            page_ids: List of integer page IDs whose sections should be removed.
+                No-op when empty.
+
+        """
+        if not page_ids:
+            return
+        client = MilvusClient(self.uri)
+        try:
+            client.delete(collection_name, filter=f"page_id in {page_ids}")
+        finally:
+            client.close()
+
     def insert_batch(self, collection_name: str, records: list[dict[str, Any]]) -> None:
         """Insert a batch of records into the Milvus collection.
 

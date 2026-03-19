@@ -10,7 +10,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Added
 
-- Loader: Add incremental load mode to wr-load
+- Loader: Add incremental load mode to wr-load ([63ced69](https://github.com/moodlehq/wiki-rag/commit/63ced69b833120242abc9355a1ff703fc8cc671f))
+- Indexer: Add incremental index mode to wr-index
 
 ### Changed
 

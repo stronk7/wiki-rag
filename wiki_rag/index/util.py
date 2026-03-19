@@ -88,6 +88,8 @@ def index_pages(
     num_sections = 0
 
     for page in tqdm(pages, desc="Processing pages", unit="pages"):
+        if page.get("change_type") == "deleted":
+            continue
         for section in page["sections"]:
             # Calculate the preamble text (doc + section title).
             text_preamble = section["doc_title"]
@@ -130,6 +132,57 @@ def index_pages(
         num_pages += 1
 
     return [num_pages, num_sections]
+
+
+def index_pages_incremental(
+        pages: list[dict],
+        collection_name: str,
+        embedding_model: str,
+        embedding_dimension: int,
+) -> dict[str, int]:
+    """Incrementally update the live collection based on each page's change_type.
+
+    Pages with `change_type` of ``"deleted"`` or ``"updated"`` have their
+    existing sections removed from the collection first. Pages with
+    ``"created"`` or ``"updated"`` are then re-embedded and inserted.
+    Pages with no `change_type` (``None``) are unchanged and skipped.
+
+    Args:
+        pages: List of page dicts from the incremental dump.
+        collection_name: Name of the live collection to update in-place.
+        embedding_model: Embedding model to use for new/updated pages.
+        embedding_dimension: Embedding vector dimensions.
+
+    Returns:
+        Summary dict with keys ``"deleted"``, ``"updated"``, ``"created"``,
+        ``"skipped"``, and ``"sections_indexed"``.
+
+    """
+    delete_ids: list[int] = []
+    pages_to_insert: list[dict] = []
+    counts = {"deleted": 0, "updated": 0, "created": 0, "skipped": 0}
+
+    for page in pages:
+        change_type = page.get("change_type")
+        if change_type == "deleted":
+            delete_ids.append(page["id"])
+            counts["deleted"] += 1
+        elif change_type == "updated":
+            delete_ids.append(page["id"])
+            pages_to_insert.append(page)
+            counts["updated"] += 1
+        elif change_type == "created":
+            pages_to_insert.append(page)
+            counts["created"] += 1
+        else:
+            counts["skipped"] += 1
+
+    vector.store.delete_by_page_ids(collection_name, delete_ids)
+
+    [_, sections_indexed] = index_pages(pages_to_insert, collection_name, embedding_model, embedding_dimension)
+    counts["sections_indexed"] = sections_indexed
+
+    return counts
 
 
 def replace_previous_collection(collection_name: str, temp_collection_name: str) -> None:

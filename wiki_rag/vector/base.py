@@ -45,6 +45,18 @@ class BaseVector(ABC):
         """
 
     @abstractmethod
+    def delete_by_page_ids(self, collection_name: str, page_ids: list[int]) -> None:
+        """Delete all sections belonging to the given page IDs from the collection.
+
+        Must be a no-op when `page_ids` is empty.
+
+        Args:
+            collection_name: Target collection / index.
+            page_ids: List of integer page IDs whose sections should be removed.
+
+        """
+
+    @abstractmethod
     def get_documents_contents_by_id(self,
         collection_name: str,
         ids: list[str],

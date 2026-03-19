@@ -3,6 +3,7 @@
 
 """Main entry point for the document indexer."""
 
+import argparse
 import logging
 import os
 import sys
@@ -17,6 +18,7 @@ from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
 from wiki_rag.index.util import (
     create_temp_collection_schema,
     index_pages,
+    index_pages_incremental,
     load_parsed_information,
     replace_previous_collection,
 )
@@ -29,6 +31,14 @@ def main():
     setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-index starting up...")
+
+    parser = argparse.ArgumentParser(description="Index parsed MediaWiki pages into a vector store.")
+    parser.add_argument(
+        "--full",
+        action="store_true",
+        help="Force a full reindex (blue/green swap) even when the dump is incremental.",
+    )
+    args = parser.parse_args()
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
@@ -116,18 +126,41 @@ def main():
     pages = information["sites"][0]["pages"]
     logger.info(f"Loaded {len(pages)} pages from JSON file")
 
-    temp_collection_name = f"{collection_name}_temp"
-    logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
-    create_temp_collection_schema(temp_collection_name, embedding_dimensions)
-    logger.info(f'Collection "{temp_collection_name}" created.')
+    dump_type = information["sites"][0].get("dump_type", "full")
+    use_incremental = not args.full and dump_type == "incremental"
 
-    logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
-    [total_pages, total_sections] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
-    logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+    if use_incremental:
+        logger.info("Incremental indexing mode: updating live collection in-place.")
+        if not vector.store.collection_exists(collection_name):
+            logger.error(
+                f'Collection "{collection_name}" does not exist. '
+                "Cannot perform incremental indexing. Run with --full to create it."
+            )
+            sys.exit(1)
+        summary = index_pages_incremental(pages, collection_name, embedding_model, embedding_dimensions)
+        logger.info(
+            f"Incremental index complete — "
+            f"deleted: {summary['deleted']}, updated: {summary['updated']}, "
+            f"created: {summary['created']}, skipped: {summary['skipped']}, "
+            f"sections indexed: {summary['sections_indexed']}."
+        )
+        logger.info(f"Compacting collection {collection_name}")
+        vector.store.compact_collection(collection_name)
+    else:
+        if args.full and dump_type == "incremental":
+            logger.info("--full flag set: forcing full reindex despite incremental dump.")
+        temp_collection_name = f"{collection_name}_temp"
+        logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
+        create_temp_collection_schema(temp_collection_name, embedding_dimensions)
+        logger.info(f'Collection "{temp_collection_name}" created.')
 
-    logger.info(f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"')
-    replace_previous_collection(collection_name, temp_collection_name)
-    logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
+        logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
+        [total_pages, total_sections] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
+        logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+
+        logger.info(f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"')
+        replace_previous_collection(collection_name, temp_collection_name)
+        logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
 
     logger.info("wiki_rag-index finished.")
 
