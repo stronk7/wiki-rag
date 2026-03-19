@@ -201,8 +201,8 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
         "If the user asks for more details or explanations the answer can be longer."
         ""
         "You are provided with a <CONTEXT> XML element, that will be used to generate the answer."
-        'Only the information present in the "Context" element will be used to generate the answer.'
-        "This is the unique knowledge that can be used."
+        'Only the information present in the "Context" element and the provided chat history'
+        "will be used to generate the answer. This is the unique knowledge that can be used."
         ""
         "You are provided with a <SOURCES> XML element, with a list of URLs, that will be used "
         "to generate up to three references at the end of the answer."
