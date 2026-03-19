@@ -43,6 +43,8 @@ def load_parsed_information(input_file: Path) -> dict:
             "sites": [
                 {
                     "site_url": "unknown",
+                    "dump_type": "full",
+                    "base_dump": None,
                     "num_pages": len(information),
                     "pages": information,
                 }

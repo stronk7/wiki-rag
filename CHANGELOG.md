@@ -8,9 +8,18 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Added
+
+- Loader: Add incremental load mode to wr-load
+
 ### Changed
 
-- Docker: Update the docker image to Python 3.13
+- Docker: Update the docker image to Python 3.13 by @stronk7 ([124cfc8](https://github.com/moodlehq/wiki-rag/commit/124cfc8b060d94e101b3e842f65543d2c3b5ebca))
+- Dependencies: Bump all library and dev dependencies by @stronk7 ([7be5992](https://github.com/moodlehq/wiki-rag/commit/7be5992d8270bdf88bbdca25cfd5ab91dcbf1fc4))
+
+### Fixed
+
+- Prompts: Reconcile local prompts with external ones ([c547bbb](https://github.com/moodlehq/wiki-rag/commit/c547bbb101240d991f2df4ae09c97a488acaa389))
 
 ## [0.12.2] - 2026-01-09
 

@@ -369,7 +369,237 @@ def convert_internal_links(pages: list[dict]):
                     section["relations"].append(target[0]["id"])
 
 
-def save_parsed_pages(parsed_pages: list[dict], output_file: Path, timestamp: datetime, url: str) -> None:
+def get_revised_page_ids(
+        mediawiki_url: str,
+        namespaces: list[int],
+        user_agent: str,
+        since: str,
+        enable_rate_limiting: bool = True,
+) -> dict[int, dict]:
+    """Get page IDs with revisions newer than a given timestamp, per namespace.
+
+    Args:
+        mediawiki_url: The url of the mediawiki site.
+        namespaces: The list of namespaces to query.
+        user_agent: The user agent to use in the requests.
+        since: ISO 8601 timestamp; only revisions after this point are returned.
+        enable_rate_limiting: Whether requests should be rate limited.
+
+    Returns:
+        Dict mapping page_id to {"rev_id", "timestamp", "title", "ns"}.
+
+    """
+    api_url = f"{mediawiki_url}/api.php"
+    headers = {"User-Agent": user_agent}
+    session = requests.Session()
+    pages: dict[int, dict] = {}
+
+    for namespace in namespaces:
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "allrevisions",
+            "arvstart": since,
+            "arvdir": "newer",
+            "arvlimit": "max",
+            "arvnamespace": namespace,
+            "arvprop": "ids|timestamp",
+        }
+        while True:
+            # TODO: Check response code (200) and handle errors.
+            result = session.get(url=api_url, params=params, headers=headers)
+            data = result.json()
+            for entry in data.get("query", {}).get("allrevisions", []):
+                page_id = int(entry["pageid"])
+                for rev in entry.get("revisions", []):
+                    if page_id not in pages or rev["revid"] > pages[page_id]["rev_id"]:
+                        pages[page_id] = {
+                            "rev_id": rev["revid"],
+                            "timestamp": rev["timestamp"],
+                            "title": entry["title"],
+                            "ns": entry["ns"],
+                        }
+            if "continue" not in data:
+                break
+            params.update(data["continue"])
+            if enable_rate_limiting:
+                time.sleep(random.uniform(2, 3))
+
+    return pages
+
+
+def get_log_events(
+        mediawiki_url: str,
+        namespaces: list[int],
+        user_agent: str,
+        since: str,
+        enable_rate_limiting: bool = True,
+) -> list[dict]:
+    """Get delete/restore log events newer than a given timestamp, per namespace.
+
+    Args:
+        mediawiki_url: The url of the mediawiki site.
+        namespaces: The list of namespaces to query.
+        user_agent: The user agent to use in the requests.
+        since: ISO 8601 timestamp; only events after this point are returned.
+        enable_rate_limiting: Whether requests should be rate limited.
+
+    Returns:
+        Chronologically sorted list of {"page_id", "action", "timestamp", "title", "ns"}.
+
+    """
+    api_url = f"{mediawiki_url}/api.php"
+    headers = {"User-Agent": user_agent}
+    session = requests.Session()
+    events: list[dict] = []
+
+    for namespace in namespaces:
+        params = {
+            "action": "query",
+            "format": "json",
+            "list": "logevents",
+            "letype": "delete",
+            "lestart": since,
+            "ledir": "newer",
+            "lelimit": "max",
+            "lenamespace": namespace,
+            "leprop": "title|type|ids|timestamp",
+        }
+        while True:
+            # TODO: Check response code (200) and handle errors.
+            result = session.get(url=api_url, params=params, headers=headers)
+            data = result.json()
+            for event in data.get("query", {}).get("logevents", []):
+                action = event.get("action")
+                if action in ("delete", "restore"):
+                    page_id = int(event.get("pageid") or event.get("logpage") or 0)
+                    events.append({
+                        "page_id": page_id,
+                        "action": action,
+                        "timestamp": event["timestamp"],
+                        "title": event.get("title", ""),
+                        "ns": event.get("ns", 0),
+                    })
+            if "continue" not in data:
+                break
+            params.update(data["continue"])
+            if enable_rate_limiting:
+                time.sleep(random.uniform(2, 3))
+
+    events.sort(key=lambda e: e["timestamp"])
+    return events
+
+
+def get_incremental_changes(
+        mediawiki_url: str,
+        namespaces: list[int],
+        user_agent: str,
+        since: str,
+        enable_rate_limiting: bool = True,
+) -> tuple[dict[int, dict], dict[int, str], list[dict]]:
+    """Determine which pages have changed since a base timestamp.
+
+    Uses allrevisions and logevents MediaWiki APIs to detect created, updated,
+    and deleted pages, then determines which pages need to be re-fetched.
+
+    Args:
+        mediawiki_url: The url of the mediawiki site.
+        namespaces: The list of namespaces to query.
+        user_agent: The user agent to use in the requests.
+        since: ISO 8601 timestamp from the base dump.
+        enable_rate_limiting: Whether requests should be rate limited.
+
+    Returns:
+        Tuple of (revised_page_ids, final_log_states, pages_to_fetch).
+            revised_page_ids: {page_id: {"rev_id", "timestamp", "title", "ns"}}
+            final_log_states: {page_id: "delete"|"restore"} after replaying all events
+            pages_to_fetch: list of {"pageid", "title", "ns"} in get_mediawiki_pages_list format
+
+    """
+    revised_page_ids = get_revised_page_ids(mediawiki_url, namespaces, user_agent, since, enable_rate_limiting)
+    log_events = get_log_events(mediawiki_url, namespaces, user_agent, since, enable_rate_limiting)
+
+    # Replay log events chronologically to determine the final state of each affected page.
+    final_log_states: dict[int, str] = {}
+    log_page_info: dict[int, dict] = {}  # page_id -> {"title", "ns"} from most recent event
+    for event in log_events:
+        pid = event["page_id"]
+        final_log_states[pid] = event["action"]
+        log_page_info[pid] = {"title": event["title"], "ns": event["ns"]}
+
+    # Pages that need re-fetching:
+    # - revised pages whose final log state is not "delete"
+    # - restored pages (final state = "restore") even without a new revision
+    pages_to_fetch_ids: set[int] = set()
+    for page_id in revised_page_ids:
+        if final_log_states.get(page_id) != "delete":
+            pages_to_fetch_ids.add(page_id)
+    for page_id, final_state in final_log_states.items():
+        if final_state == "restore" and page_id not in pages_to_fetch_ids:
+            pages_to_fetch_ids.add(page_id)
+
+    # Build the pages list in get_mediawiki_pages_list format.
+    pages_to_fetch: list[dict] = []
+    for page_id in pages_to_fetch_ids:
+        if page_id in revised_page_ids:
+            info = revised_page_ids[page_id]
+            pages_to_fetch.append({"pageid": page_id, "title": info["title"], "ns": info["ns"]})
+        elif page_id in log_page_info:
+            info = log_page_info[page_id]
+            pages_to_fetch.append({"pageid": page_id, "title": info["title"], "ns": info["ns"]})
+
+    return revised_page_ids, final_log_states, pages_to_fetch
+
+
+def merge_incremental_pages(
+        base_pages: dict[int, dict],
+        parsed_pages: list[dict],
+        final_log_states: dict[int, str],
+        revised_page_ids: dict[int, dict],
+) -> list[dict]:
+    """Merge newly parsed pages with base pages to form a complete dump.
+
+    Args:
+        base_pages: Pages from the base dump, keyed by page id (page["id"]).
+        parsed_pages: Newly fetched and parsed pages (created or updated).
+        final_log_states: Final delete/restore state per page_id from log events.
+        revised_page_ids: Pages with new revisions since the base dump.
+
+    Returns:
+        Complete list of all pages with change_type set on each.
+
+    """
+    parsed_page_ids = {page["id"] for page in parsed_pages}
+    result: list[dict] = []
+
+    # Add all newly parsed pages with appropriate change_type.
+    for page in parsed_pages:
+        page["change_type"] = "updated" if page["id"] in base_pages else "created"
+        result.append(page)
+
+    # Add base pages that were not re-parsed.
+    for page_id, page in base_pages.items():
+        if page_id in parsed_page_ids:
+            continue  # Already included above.
+        if page.get("change_type") == "deleted":
+            continue  # Already deleted in a previous increment; don't carry forward.
+        if final_log_states.get(page_id) == "delete":
+            page["change_type"] = "deleted"
+        else:
+            page["change_type"] = None  # Unchanged.
+        result.append(page)
+
+    return result
+
+
+def save_parsed_pages(
+        parsed_pages: list[dict],
+        output_file: Path,
+        timestamp: datetime,
+        url: str,
+        dump_type: str = "full",
+        base_dump: str | None = None,
+) -> None:
     """Save the whole parsed information to a JSON file for later processing.
 
     We also add some metadata, apart from the pages that can be useful to check dates and
@@ -384,6 +614,10 @@ def save_parsed_pages(parsed_pages: list[dict], output_file: Path, timestamp: da
             # Let the base class default method raise the TypeError
             return json.JSONEncoder.default(self, o)
 
+    # Ensure every page carries a change_type field (None for full/unchanged pages).
+    for page in parsed_pages:
+        page.setdefault("change_type", None)
+
     with open(output_file, "w") as f:
         info = {
             "meta": {
@@ -393,9 +627,12 @@ def save_parsed_pages(parsed_pages: list[dict], output_file: Path, timestamp: da
             "sites": [
                 {
                     "site_url": url,
+                    "timestamp": timestamp.isoformat(),
+                    "dump_type": dump_type,
+                    "base_dump": base_dump,
                     "num_pages": len(parsed_pages),
                     "pages": parsed_pages,
                 }
             ]
         }
-        json.dump(info, f, cls=CustomEncoder)
+        json.dump(info, f, cls=CustomEncoder, indent=2)

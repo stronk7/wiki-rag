@@ -3,6 +3,7 @@
 
 """Main entry point for the document loader."""
 
+import argparse
 import logging
 import os
 import sys
@@ -13,9 +14,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__
+from wiki_rag.index.util import load_parsed_information
 from wiki_rag.load.util import (
+    get_incremental_changes,
     get_mediawiki_pages_list,
     get_mediawiki_parsed_pages,
+    merge_incremental_pages,
     save_parsed_pages,
 )
 from wiki_rag.util import setup_logging
@@ -29,6 +33,21 @@ def main():
 
     # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
+
+    parser = argparse.ArgumentParser(description="Load and parse MediaWiki pages into a dump file.")
+    parser.add_argument(
+        "--incremental",
+        action="store_true",
+        help="Enable incremental mode: only fetch changed pages since the base dump.",
+    )
+    parser.add_argument(
+        "--base-json",
+        type=Path,
+        default=None,
+        metavar="PATH",
+        help="Path to the base dump JSON for incremental mode. Auto-detected if not provided.",
+    )
+    args = parser.parse_args()
 
     dotenv_file = ROOT_DIR / ".env"
     if dotenv_file.exists():
@@ -116,20 +135,73 @@ def main():
         logger.error("ENABLE_RATE_LIMITING environment variable can only get values 'true' or 'false'. Exiting.")
         sys.exit(1)
 
-    logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
-    pages = get_mediawiki_pages_list(
-        mediawiki_url, mediawiki_namespaces, user_agent, 500, enable_rate_limiting
-    )
-    logger.info(f"Loaded {len(pages)} pages.")
+    if args.incremental:
+        # --- Incremental load mode ---
+        logger.info("Incremental mode enabled.")
 
-    logger.info("Fetching, parsing and splitting pages")
-    parsed_pages = get_mediawiki_parsed_pages(
-        mediawiki_url, pages, user_agent, exclusions, keep_templates, enable_rate_limiting
-    )
-    logger.info(f"Parsed {len(parsed_pages)} pages.")
+        # Determine the base JSON file.
+        base_json_file: Path | None = args.base_json
+        if not base_json_file:
+            # Auto-detect the most recent matching dump in the dump directory.
+            for f in sorted(loader_dump_path.iterdir()):
+                if f.is_file() and f.name.startswith(f"{collection_name}-") and f.name.endswith(".json"):
+                    base_json_file = f
+            if not base_json_file:
+                logger.error(
+                    f"No base dump found in {loader_dump_path} for collection '{collection_name}'. Exiting."
+                )
+                sys.exit(1)
+        logger.info(f"Using base dump: {base_json_file}")
 
-    logger.info(f"Saving parsed pages to {dump_filename}")
-    save_parsed_pages(parsed_pages, dump_filename, dump_datetime, mediawiki_url)
+        # Load and validate the base dump.
+        base_information = load_parsed_information(base_json_file)
+        base_site = base_information["sites"][0]
+        since = base_site.get("timestamp") or base_information["meta"]["timestamp"]
+        logger.info(f"Fetching changes since: {since}")
+
+        # Fetch changed page IDs from the MediaWiki API.
+        revised_page_ids, final_log_states, pages_to_fetch = get_incremental_changes(
+            mediawiki_url, mediawiki_namespaces, user_agent, since, enable_rate_limiting
+        )
+        logger.info(
+            f"Found {len(revised_page_ids)} revised page(s), "
+            f"{len(final_log_states)} page(s) with delete/restore events, "
+            f"{len(pages_to_fetch)} page(s) to re-fetch."
+        )
+
+        # Parse the pages that need re-fetching using the existing pipeline.
+        logger.info("Fetching, parsing and splitting changed pages")
+        parsed_pages = get_mediawiki_parsed_pages(
+            mediawiki_url, pages_to_fetch, user_agent, exclusions, keep_templates, enable_rate_limiting
+        )
+        logger.info(f"Parsed {len(parsed_pages)} changed page(s).")
+
+        # Merge with base pages to produce a complete dump.
+        base_pages = {page["id"]: page for page in base_information["sites"][0]["pages"]}
+        merged_pages = merge_incremental_pages(base_pages, parsed_pages, final_log_states, revised_page_ids)
+        logger.info(f"Merged dump contains {len(merged_pages)} page(s).")
+
+        logger.info(f"Saving incremental dump to {dump_filename}")
+        save_parsed_pages(
+            merged_pages, dump_filename, dump_datetime, mediawiki_url,
+            dump_type="incremental", base_dump=base_json_file.name,
+        )
+    else:
+        # --- Full load mode (default) ---
+        logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
+        pages = get_mediawiki_pages_list(
+            mediawiki_url, mediawiki_namespaces, user_agent, 500, enable_rate_limiting
+        )
+        logger.info(f"Loaded {len(pages)} pages.")
+
+        logger.info("Fetching, parsing and splitting pages")
+        parsed_pages = get_mediawiki_parsed_pages(
+            mediawiki_url, pages, user_agent, exclusions, keep_templates, enable_rate_limiting
+        )
+        logger.info(f"Parsed {len(parsed_pages)} pages.")
+
+        logger.info(f"Saving parsed pages to {dump_filename}")
+        save_parsed_pages(parsed_pages, dump_filename, dump_datetime, mediawiki_url)
 
     logger.info("wiki_rag-load finished.")
 
