@@ -55,11 +55,12 @@ To get started with Wiki-RAG, ensure you have the following:
 
 4. **Run the Application**:
    The application comes with four different executables:
-   - `wr-load`: Will parse all the configured pages in the source Mediawiki site, extracting contents and other important metadata. All the generated information will be stored into a JSON file in the `data` directory.
-   - `wr-index`: In charge of creating the collection in the vector index (Milvus) with all the information extracted in the previous step.
+   - `wr-load`: Will parse all the configured pages in the source Mediawiki site, extracting contents and other important metadata. All the generated information will be stored into a JSON file in the `data` directory. Supports `--incremental` mode to only re-fetch changed pages since a previous dump.
+   - `wr-index`: In charge of creating (or incrementally updating) the collection in the vector index (Milvus) with all the information extracted in the previous step. Automatically uses incremental mode for incremental dumps; use `--full` to force a full reindex.
    - `wr-search`: A tiny CLI utility to perform searches against the RAG system from the command line.
    - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM).
    - `wr-mcp`: A complete and **UNPROTECTED** built-in MCP server that allows you to access to various parts of Wiki-RAG like prompts (system and use prompt with placeholders), resources (access to the source parsed documents) and tools (retrieve, optimise and generate) using the [MCP Protocol](https://modelcontextprotocol.io/).
+   - `wr-cleanup.sh`: A standalone Bash script to prune old dump files. Run `./scripts/wr-cleanup.sh --help` for full usage.
 
 ### Running with Docker (Milvus elsewhere)
 
@@ -120,6 +121,7 @@ To get started with Wiki-RAG, ensure you have the following:
    * Uses Mediawiki API to extract content and metadata (not web crawling).
    * Supports multiple namespaces and page exclusions.
    * The whole KB is stored in a (dated) JSON file for later use, access and analysis.
+   * Supports incremental loading and indexing, processing only changed pages since a previous dump.
    * Metadata-rich information containing parent-ship relations, sources and other useful information.
    * Loads the KB into a vector database (Milvus) for fast retrieval.
    * Hybrid retrieval using both vector and keyword search with fusion reranking.
@@ -141,8 +143,8 @@ To get started with Wiki-RAG, ensure you have the following:
 
 ## Future Work
 
-   support partial/incremental loading /
-   support partial/incremental indexing /
+   ~~[support partial/incremental loading](https://github.com/moodlehq/wiki-rag/commit/63ced69)~~ /
+   ~~[support partial/incremental indexing](https://github.com/moodlehq/wiki-rag/commit/ccd4c4a)~~ /
    process multiple mediawiki sites /
    process other sites (docusaurus, ...) /
    more granular splits /
@@ -194,5 +196,5 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 Please note that this project adheres to a [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.
 
-----
+---
 © 2025 Moodle Research Team
