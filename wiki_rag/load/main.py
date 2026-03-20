@@ -22,7 +22,7 @@ from wiki_rag.load.util import (
     merge_incremental_pages,
     save_parsed_pages,
 )
-from wiki_rag.util import setup_logging
+from wiki_rag.util import instance_lock, setup_logging
 
 
 def main():
@@ -108,102 +108,104 @@ def main():
     if not collection_name:
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
-    # The dump datetime is now, before starting the loading. We use also for the filename.
-    dump_datetime = datetime.now(UTC).replace(microsecond=0)
-    dump_filename = loader_dump_path / f"{collection_name}-{dump_datetime.strftime('%Y-%m-%d-%H-%M')}.json"
 
-    user_agent = os.getenv("USER_AGENT")
-    if not user_agent:
-        logger.info("User agent not found in environment. Using default.")
-        user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
-    user_agent = f"{user_agent.format(version=__version__)}"
+    with instance_lock(collection_name, loader_dump_path):
+        # The dump datetime is now, before starting the loading. We use also for the filename.
+        dump_datetime = datetime.now(UTC).replace(microsecond=0)
+        dump_filename = loader_dump_path / f"{collection_name}-{dump_datetime.strftime('%Y-%m-%d-%H-%M')}.json"
 
-    enable_rate_limiting_setting: str | None = os.getenv("ENABLE_RATE_LIMITING")
-    if not enable_rate_limiting_setting:
-        logger.info("ENABLE_RATE_LIMITING setting not found in environment. Using the default value 'true'")
-        enable_rate_limiting_setting = "true"
+        user_agent = os.getenv("USER_AGENT")
+        if not user_agent:
+            logger.info("User agent not found in environment. Using default.")
+            user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
+        user_agent = f"{user_agent.format(version=__version__)}"
 
-    enable_rate_limiting_setting = enable_rate_limiting_setting.lower()
+        enable_rate_limiting_setting: str | None = os.getenv("ENABLE_RATE_LIMITING")
+        if not enable_rate_limiting_setting:
+            logger.info("ENABLE_RATE_LIMITING setting not found in environment. Using the default value 'true'")
+            enable_rate_limiting_setting = "true"
 
-    if enable_rate_limiting_setting == "true":
-        enable_rate_limiting = True
-        logger.info("Rate limiting is enabled.")
-    elif enable_rate_limiting_setting == "false":
-        enable_rate_limiting = False
-        logger.info("Rate limiting is disabled.")
-    else:
-        logger.error("ENABLE_RATE_LIMITING environment variable can only get values 'true' or 'false'. Exiting.")
-        sys.exit(1)
+        enable_rate_limiting_setting = enable_rate_limiting_setting.lower()
 
-    if args.incremental:
-        # --- Incremental load mode ---
-        logger.info("Incremental mode enabled.")
+        if enable_rate_limiting_setting == "true":
+            enable_rate_limiting = True
+            logger.info("Rate limiting is enabled.")
+        elif enable_rate_limiting_setting == "false":
+            enable_rate_limiting = False
+            logger.info("Rate limiting is disabled.")
+        else:
+            logger.error("ENABLE_RATE_LIMITING environment variable can only get values 'true' or 'false'. Exiting.")
+            sys.exit(1)
 
-        # Determine the base JSON file.
-        base_json_file: Path | None = args.base_json
-        if not base_json_file:
-            # Auto-detect the most recent matching dump in the dump directory.
-            for f in sorted(loader_dump_path.iterdir()):
-                if f.is_file() and f.name.startswith(f"{collection_name}-") and f.name.endswith(".json"):
-                    base_json_file = f
+        if args.incremental:
+            # --- Incremental load mode ---
+            logger.info("Incremental mode enabled.")
+
+            # Determine the base JSON file.
+            base_json_file: Path | None = args.base_json
             if not base_json_file:
-                logger.error(
-                    f"No base dump found in {loader_dump_path} for collection '{collection_name}'. Exiting."
-                )
-                sys.exit(1)
-        logger.info(f"Using base dump: {base_json_file}")
+                # Auto-detect the most recent matching dump in the dump directory.
+                for f in sorted(loader_dump_path.iterdir()):
+                    if f.is_file() and f.name.startswith(f"{collection_name}-") and f.name.endswith(".json"):
+                        base_json_file = f
+                if not base_json_file:
+                    logger.error(
+                        f"No base dump found in {loader_dump_path} for collection '{collection_name}'. Exiting."
+                    )
+                    sys.exit(1)
+            logger.info(f"Using base dump: {base_json_file}")
 
-        # Load and validate the base dump.
-        base_information = load_parsed_information(base_json_file)
-        base_site = base_information["sites"][0]
-        since = base_site.get("timestamp") or base_information["meta"]["timestamp"]
-        logger.info(f"Fetching changes since: {since}")
+            # Load and validate the base dump.
+            base_information = load_parsed_information(base_json_file)
+            base_site = base_information["sites"][0]
+            since = base_site.get("timestamp") or base_information["meta"]["timestamp"]
+            logger.info(f"Fetching changes since: {since}")
 
-        # Fetch changed page IDs from the MediaWiki API.
-        revised_page_ids, final_log_states, pages_to_fetch = get_incremental_changes(
-            mediawiki_url, mediawiki_namespaces, user_agent, since, enable_rate_limiting
-        )
-        logger.info(
-            f"Found {len(revised_page_ids)} revised page(s), "
-            f"{len(final_log_states)} page(s) with delete/restore events, "
-            f"{len(pages_to_fetch)} page(s) to re-fetch."
-        )
+            # Fetch changed page IDs from the MediaWiki API.
+            revised_page_ids, final_log_states, pages_to_fetch = get_incremental_changes(
+                mediawiki_url, mediawiki_namespaces, user_agent, since, enable_rate_limiting
+            )
+            logger.info(
+                f"Found {len(revised_page_ids)} revised page(s), "
+                f"{len(final_log_states)} page(s) with delete/restore events, "
+                f"{len(pages_to_fetch)} page(s) to re-fetch."
+            )
 
-        # Parse the pages that need re-fetching using the existing pipeline.
-        logger.info("Fetching, parsing and splitting changed pages")
-        parsed_pages = get_mediawiki_parsed_pages(
-            mediawiki_url, pages_to_fetch, user_agent, exclusions, keep_templates, enable_rate_limiting
-        )
-        logger.info(f"Parsed {len(parsed_pages)} changed page(s).")
+            # Parse the pages that need re-fetching using the existing pipeline.
+            logger.info("Fetching, parsing and splitting changed pages")
+            parsed_pages = get_mediawiki_parsed_pages(
+                mediawiki_url, pages_to_fetch, user_agent, exclusions, keep_templates, enable_rate_limiting
+            )
+            logger.info(f"Parsed {len(parsed_pages)} changed page(s).")
 
-        # Merge with base pages to produce a complete dump.
-        base_pages = {page["id"]: page for page in base_information["sites"][0]["pages"]}
-        merged_pages = merge_incremental_pages(base_pages, parsed_pages, final_log_states, revised_page_ids)
-        logger.info(f"Merged dump contains {len(merged_pages)} page(s).")
+            # Merge with base pages to produce a complete dump.
+            base_pages = {page["id"]: page for page in base_information["sites"][0]["pages"]}
+            merged_pages = merge_incremental_pages(base_pages, parsed_pages, final_log_states, revised_page_ids)
+            logger.info(f"Merged dump contains {len(merged_pages)} page(s).")
 
-        logger.info(f"Saving incremental dump to {dump_filename}")
-        save_parsed_pages(
-            merged_pages, dump_filename, dump_datetime, mediawiki_url,
-            dump_type="incremental", base_dump=base_json_file.name,
-        )
-    else:
-        # --- Full load mode (default) ---
-        logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
-        pages = get_mediawiki_pages_list(
-            mediawiki_url, mediawiki_namespaces, user_agent, 500, enable_rate_limiting
-        )
-        logger.info(f"Loaded {len(pages)} pages.")
+            logger.info(f"Saving incremental dump to {dump_filename}")
+            save_parsed_pages(
+                merged_pages, dump_filename, dump_datetime, mediawiki_url,
+                dump_type="incremental", base_dump=base_json_file.name,
+            )
+        else:
+            # --- Full load mode (default) ---
+            logger.info(f"Pre-loading page list for mediawiki: {mediawiki_url}, namespaces: {mediawiki_namespaces}")
+            pages = get_mediawiki_pages_list(
+                mediawiki_url, mediawiki_namespaces, user_agent, 500, enable_rate_limiting
+            )
+            logger.info(f"Loaded {len(pages)} pages.")
 
-        logger.info("Fetching, parsing and splitting pages")
-        parsed_pages = get_mediawiki_parsed_pages(
-            mediawiki_url, pages, user_agent, exclusions, keep_templates, enable_rate_limiting
-        )
-        logger.info(f"Parsed {len(parsed_pages)} pages.")
+            logger.info("Fetching, parsing and splitting pages")
+            parsed_pages = get_mediawiki_parsed_pages(
+                mediawiki_url, pages, user_agent, exclusions, keep_templates, enable_rate_limiting
+            )
+            logger.info(f"Parsed {len(parsed_pages)} pages.")
 
-        logger.info(f"Saving parsed pages to {dump_filename}")
-        save_parsed_pages(parsed_pages, dump_filename, dump_datetime, mediawiki_url)
+            logger.info(f"Saving parsed pages to {dump_filename}")
+            save_parsed_pages(parsed_pages, dump_filename, dump_datetime, mediawiki_url)
 
-    logger.info("wiki_rag-load finished.")
+        logger.info("wiki_rag-load finished.")
 
 
 if __name__ == "__main__":

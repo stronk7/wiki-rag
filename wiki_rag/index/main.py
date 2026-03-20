@@ -22,7 +22,7 @@ from wiki_rag.index.util import (
     load_parsed_information,
     replace_previous_collection,
 )
-from wiki_rag.util import setup_logging
+from wiki_rag.util import instance_lock, setup_logging
 from wiki_rag.vector import load_vector_store
 
 
@@ -81,88 +81,93 @@ def main():
         logger.error("Collection name not found in environment. Exiting.")
         sys.exit(1)
 
-    index_vendor = os.getenv("INDEX_VENDOR")
-    if not index_vendor:
-        logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
-        index_vendor = "milvus"
+    with instance_lock(collection_name, loader_dump_path):
+        index_vendor = os.getenv("INDEX_VENDOR")
+        if not index_vendor:
+            logger.warning("Index vendor (INDEX_VENDOR) not found in environment. Defaulting to 'milvus'.")
+            index_vendor = "milvus"
 
-    user_agent = os.getenv("USER_AGENT")
-    if not user_agent:
-        logger.info("User agent not found in environment. Using default.")
-        user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
-    user_agent = f"{user_agent.format(version=__version__)}"
+        user_agent = os.getenv("USER_AGENT")
+        if not user_agent:
+            logger.info("User agent not found in environment. Using default.")
+            user_agent = "Moodle Research Crawler/{version} (https://git.in.moodle.com/research)"
+        user_agent = f"{user_agent.format(version=__version__)}"
 
-    embedding_model = os.getenv("EMBEDDING_MODEL")
-    if not embedding_model:
-        logger.error("Embedding model not found in environment. Exiting.")
-        sys.exit(1)
-
-    embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
-    if not embedding_dimensions:
-        logger.error("Embedding dimensions not found in environment. Exiting.")
-        sys.exit(1)
-    embedding_dimensions = int(embedding_dimensions)
-
-    vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
-
-    input_candidate = ""
-    # TODO: Implement CLI argument to accept the input file here.
-
-    # No candidate yet, let's find the last file in the directory (with collection_name
-    # as prefix to filter out other files).
-    for file in sorted(loader_dump_path.iterdir()):
-        if file.is_file() and file.name.startswith(f"{collection_name}-") and file.name.endswith(".json"):
-            input_candidate = file
-    if not input_candidate:
-        logger.error(f"No input file found in {loader_dump_path} with collection name {collection_name}. Exiting.")
-        sys.exit(1)
-
-    # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
-    input_file = loader_dump_path / input_candidate
-
-    logger.info(f"Loading parsed pages from JSON: {input_file}, namespaces: {mediawiki_namespaces}")
-    information = load_parsed_information(input_file)
-    # TODO: Multiple site information handling should be implemented here.
-    pages = information["sites"][0]["pages"]
-    logger.info(f"Loaded {len(pages)} pages from JSON file")
-
-    dump_type = information["sites"][0].get("dump_type", "full")
-    use_incremental = not args.full and dump_type == "incremental"
-
-    if use_incremental:
-        logger.info("Incremental indexing mode: updating live collection in-place.")
-        if not vector.store.collection_exists(collection_name):
-            logger.error(
-                f'Collection "{collection_name}" does not exist. '
-                "Cannot perform incremental indexing. Run with --full to create it."
-            )
+        embedding_model = os.getenv("EMBEDDING_MODEL")
+        if not embedding_model:
+            logger.error("Embedding model not found in environment. Exiting.")
             sys.exit(1)
-        summary = index_pages_incremental(pages, collection_name, embedding_model, embedding_dimensions)
-        logger.info(
-            f"Incremental index complete — "
-            f"deleted: {summary['deleted']}, updated: {summary['updated']}, "
-            f"created: {summary['created']}, skipped: {summary['skipped']}, "
-            f"sections indexed: {summary['sections_indexed']}."
-        )
-        logger.info(f"Compacting collection {collection_name}")
-        vector.store.compact_collection(collection_name)
-    else:
-        if args.full and dump_type == "incremental":
-            logger.info("--full flag set: forcing full reindex despite incremental dump.")
-        temp_collection_name = f"{collection_name}_temp"
-        logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
-        create_temp_collection_schema(temp_collection_name, embedding_dimensions)
-        logger.info(f'Collection "{temp_collection_name}" created.')
 
-        logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
-        [total_pages, total_sections] = index_pages(pages, temp_collection_name, embedding_model, embedding_dimensions)
-        logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+        embedding_dimensions = os.getenv("EMBEDDING_DIMENSIONS")
+        if not embedding_dimensions:
+            logger.error("Embedding dimensions not found in environment. Exiting.")
+            sys.exit(1)
+        embedding_dimensions = int(embedding_dimensions)
 
-        logger.info(f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"')
-        replace_previous_collection(collection_name, temp_collection_name)
-        logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
+        vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
 
-    logger.info("wiki_rag-index finished.")
+        input_candidate = ""
+        # TODO: Implement CLI argument to accept the input file here.
+
+        # No candidate yet, let's find the last file in the directory (with collection_name
+        # as prefix to filter out other files).
+        for file in sorted(loader_dump_path.iterdir()):
+            if file.is_file() and file.name.startswith(f"{collection_name}-") and file.name.endswith(".json"):
+                input_candidate = file
+        if not input_candidate:
+            logger.error(f"No input file found in {loader_dump_path} with collection name {collection_name}. Exiting.")
+            sys.exit(1)
+
+        # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
+        input_file = loader_dump_path / input_candidate
+
+        logger.info(f"Loading parsed pages from JSON: {input_file}, namespaces: {mediawiki_namespaces}")
+        information = load_parsed_information(input_file)
+        # TODO: Multiple site information handling should be implemented here.
+        pages = information["sites"][0]["pages"]
+        logger.info(f"Loaded {len(pages)} pages from JSON file")
+
+        dump_type = information["sites"][0].get("dump_type", "full")
+        use_incremental = not args.full and dump_type == "incremental"
+
+        if use_incremental:
+            logger.info("Incremental indexing mode: updating live collection in-place.")
+            if not vector.store.collection_exists(collection_name):
+                logger.error(
+                    f'Collection "{collection_name}" does not exist. '
+                    "Cannot perform incremental indexing. Run with --full to create it."
+                )
+                sys.exit(1)
+            summary = index_pages_incremental(pages, collection_name, embedding_model, embedding_dimensions)
+            logger.info(
+                f"Incremental index complete — "
+                f"deleted: {summary['deleted']}, updated: {summary['updated']}, "
+                f"created: {summary['created']}, skipped: {summary['skipped']}, "
+                f"sections indexed: {summary['sections_indexed']}."
+            )
+            logger.info(f"Compacting collection {collection_name}")
+            vector.store.compact_collection(collection_name)
+        else:
+            if args.full and dump_type == "incremental":
+                logger.info("--full flag set: forcing full reindex despite incremental dump.")
+            temp_collection_name = f"{collection_name}_temp"
+            logger.info(f'Preparing new temp collection "{temp_collection_name}" schema')
+            create_temp_collection_schema(temp_collection_name, embedding_dimensions)
+            logger.info(f'Collection "{temp_collection_name}" created.')
+
+            logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
+            [total_pages, total_sections] = index_pages(
+                pages, temp_collection_name, embedding_model, embedding_dimensions
+            )
+            logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
+
+            logger.info(
+                f'Replacing previous collection "{collection_name}" with new collection "{temp_collection_name}"'
+            )
+            replace_previous_collection(collection_name, temp_collection_name)
+            logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
+
+        logger.info("wiki_rag-index finished.")
 
 
 if __name__ == "__main__":
