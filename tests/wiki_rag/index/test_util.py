@@ -7,6 +7,8 @@ import unittest
 
 from unittest.mock import MagicMock, patch
 
+from wiki_rag.index.util import index_pages, index_pages_incremental
+
 
 def _make_section(page_id: int, idx: int = 0) -> dict:
     """Return a minimal section dict for testing."""
@@ -51,8 +53,6 @@ class TestIndexPagesSkipsDeletedPages(unittest.TestCase):
     @patch("wiki_rag.index.util.OpenAIEmbeddings")
     def test_index_pages_skips_deleted_pages(self, mock_embeddings_cls, mock_vector):
         """Deleted pages produce zero insert_batch calls."""
-        from wiki_rag.index.util import index_pages
-
         mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
 
         pages = [_make_page(1, change_type="deleted", num_sections=2)]
@@ -64,8 +64,6 @@ class TestIndexPagesSkipsDeletedPages(unittest.TestCase):
     @patch("wiki_rag.index.util.OpenAIEmbeddings")
     def test_index_pages_indexes_non_deleted_pages(self, mock_embeddings_cls, mock_vector):
         """Pages without change_type (full dump) are indexed normally."""
-        from wiki_rag.index.util import index_pages
-
         mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
 
         pages = [_make_page(1, num_sections=2)]  # no change_type key
@@ -84,7 +82,6 @@ class TestIndexPagesIncremental(unittest.TestCase):
             patch("wiki_rag.index.util.OpenAIEmbeddings") as mock_embeddings_cls,
         ):
             mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
-            from wiki_rag.index.util import index_pages_incremental
             summary = index_pages_incremental(pages, "live_col", "model", 4)
             return summary, mock_vector, mock_embeddings_cls
 

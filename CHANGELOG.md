@@ -12,13 +12,15 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 - Loader: Add incremental load mode to wr-load by @stronk7 ([63ced69](https://github.com/moodlehq/wiki-rag/commit/63ced69b833120242abc9355a1ff703fc8cc671f))
 - Indexer: Add incremental index mode to wr-index by @stronk7 ([3c3b3ac](https://github.com/moodlehq/wiki-rag/commit/3c3b3ac3934dbc809409821156bddfd6ec965dec))
-- Cleanup: Add wr-cleanup.sh dump file retention script
+- Cleanup: Add wr-cleanup.sh dump file retention script by @stronk7 ([2790460](https://github.com/moodlehq/wiki-rag/commit/27904606d773c0df111d7717f5766f63ab61a2f8))
+- Lock: Add per-instance lock to prevent concurrent wr-load / wr-index ([2c39c63](https://github.com/moodlehq/wiki-rag/commit/2c39c633a2e17ec3ebf40629cb6e6d3ce5c94943))
 
 ### Changed
 
 - Docker: Update the docker image to Python 3.13 by @stronk7 ([124cfc8](https://github.com/moodlehq/wiki-rag/commit/124cfc8b060d94e101b3e842f65543d2c3b5ebca))
 - Dependencies: Bump all library and dev dependencies by @stronk7 ([7be5992](https://github.com/moodlehq/wiki-rag/commit/7be5992d8270bdf88bbdca25cfd5ab91dcbf1fc4))
 - Tests: Mirror source package structure in tests/ by @stronk7 ([f69d765](https://github.com/moodlehq/wiki-rag/commit/f69d765d79959fe35592e36cf904a764075fda2e))
+- Move all imports to module top-level
 
 ### Fixed
 

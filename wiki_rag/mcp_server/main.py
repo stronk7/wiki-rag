@@ -16,6 +16,7 @@ import wiki_rag.mcp_server as mcp_global
 import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
+from wiki_rag.mcp_server.server import mcp
 from wiki_rag.search.util import ContextSchema
 from wiki_rag.util import setup_logging
 from wiki_rag.vector import load_vector_store
@@ -219,8 +220,6 @@ def main():
         server.context["langfuse_callback"] = CallbackHandler()
 
     # Start the mcp_server server
-    from wiki_rag.mcp_server.server import mcp
-
     mcp.run("http", host=mcp_server, port=mcp_port)
 
     logger.info("wiki_rag-server-mcp_server finished.")

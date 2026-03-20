@@ -18,6 +18,7 @@ import wiki_rag.vector as vector
 
 from wiki_rag import LOG_LEVEL, ROOT_DIR, __version__, server
 from wiki_rag.search.util import ContextSchema, build_graph
+from wiki_rag.server.server import app
 from wiki_rag.util import setup_logging
 from wiki_rag.vector import load_vector_store
 
@@ -198,8 +199,6 @@ def main():
 
     logger.info("Building the graph")
     server.graph = build_graph(server.context)
-
-    from wiki_rag.server.server import app
 
     # Start the web server
     uvicorn.run(
