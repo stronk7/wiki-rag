@@ -11,12 +11,13 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Added
 
 - Loader: Add incremental load mode to wr-load ([63ced69](https://github.com/moodlehq/wiki-rag/commit/63ced69b833120242abc9355a1ff703fc8cc671f))
-- Indexer: Add incremental index mode to wr-index
+- Indexer: Add incremental index mode to wr-index ([3c3b3ac](https://github.com/moodlehq/wiki-rag/commit/3c3b3ac3934dbc809409821156bddfd6ec965dec))
 
 ### Changed
 
 - Docker: Update the docker image to Python 3.13 by @stronk7 ([124cfc8](https://github.com/moodlehq/wiki-rag/commit/124cfc8b060d94e101b3e842f65543d2c3b5ebca))
 - Dependencies: Bump all library and dev dependencies by @stronk7 ([7be5992](https://github.com/moodlehq/wiki-rag/commit/7be5992d8270bdf88bbdca25cfd5ab91dcbf1fc4))
+- Tests: Mirror source package structure in tests/ ([046c34d](https://github.com/moodlehq/wiki-rag/commit/046c34d3d24a010236ce858589c1ab0a554cc6d9))
 
 ### Fixed
 
