@@ -6,25 +6,27 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.13.0] - 2026-03-20
 
 ### Added
 
 - Loader: Add incremental load mode to wr-load by @stronk7 ([63ced69](https://github.com/moodlehq/wiki-rag/commit/63ced69b833120242abc9355a1ff703fc8cc671f))
 - Indexer: Add incremental index mode to wr-index by @stronk7 ([3c3b3ac](https://github.com/moodlehq/wiki-rag/commit/3c3b3ac3934dbc809409821156bddfd6ec965dec))
 - Cleanup: Add wr-cleanup.sh dump file retention script by @stronk7 ([2790460](https://github.com/moodlehq/wiki-rag/commit/27904606d773c0df111d7717f5766f63ab61a2f8))
-- Lock: Add per-instance lock to prevent concurrent wr-load / wr-index ([2c39c63](https://github.com/moodlehq/wiki-rag/commit/2c39c633a2e17ec3ebf40629cb6e6d3ce5c94943))
+- Lock: Add per-instance lock to prevent concurrent wr-load / wr-index by @stronk7 ([2c39c63](https://github.com/moodlehq/wiki-rag/commit/2c39c633a2e17ec3ebf40629cb6e6d3ce5c94943))
 
 ### Changed
 
 - Docker: Update the docker image to Python 3.13 by @stronk7 ([124cfc8](https://github.com/moodlehq/wiki-rag/commit/124cfc8b060d94e101b3e842f65543d2c3b5ebca))
 - Dependencies: Bump all library and dev dependencies by @stronk7 ([7be5992](https://github.com/moodlehq/wiki-rag/commit/7be5992d8270bdf88bbdca25cfd5ab91dcbf1fc4))
 - Tests: Mirror source package structure in tests/ by @stronk7 ([f69d765](https://github.com/moodlehq/wiki-rag/commit/f69d765d79959fe35592e36cf904a764075fda2e))
-- Move all imports to module top-level
+- Move all imports to module top-level by @stronk7 ([ccf3f0e](https://github.com/moodlehq/wiki-rag/commit/ccf3f0e8aee8e4177d7299f54eea85bf22f58e28))
 
 ### Fixed
 
 - Prompts: Reconcile local prompts with external ones by @stronk7 ([c547bbb](https://github.com/moodlehq/wiki-rag/commit/c547bbb101240d991f2df4ae09c97a488acaa389))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.12.2...v0.13.0
 
 ## [0.12.2] - 2026-01-09
 
@@ -452,7 +454,7 @@ trivial and everything continues working exactly the same.
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.12.2..HEAD
+[0.13.0]: https://github.com/moodlehq/wiki-rag/compare/v0.12.2..v0.13.0
 [0.12.2]: https://github.com/moodlehq/wiki-rag/compare/v0.12.1..v0.12.2
 [0.12.1]: https://github.com/moodlehq/wiki-rag/compare/v0.12.0..v0.12.1
 [0.12.0]: https://github.com/moodlehq/wiki-rag/compare/v0.11.2..v0.12.0
