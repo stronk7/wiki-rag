@@ -6,11 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.13.1] - 2026-03-23
 
 ### Fixed
 
-- Server: Defer server.context access to instance creation time
+- Server: Solved a regression in the web server, preventing it to run properly by @stronk7 ([109e321](https://github.com/moodlehq/wiki-rag/commit/109e3217456b57c3eef15a96a88846c435625b9b))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.13.0...v0.13.1
 
 ## [0.13.0] - 2026-03-20
 
@@ -460,7 +462,7 @@ trivial and everything continues working exactly the same.
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.13.0..HEAD
+[0.13.1]: https://github.com/moodlehq/wiki-rag/compare/v0.13.0..v0.13.1
 [0.13.0]: https://github.com/moodlehq/wiki-rag/compare/v0.12.2..v0.13.0
 [0.12.2]: https://github.com/moodlehq/wiki-rag/compare/v0.12.1..v0.12.2
 [0.12.1]: https://github.com/moodlehq/wiki-rag/compare/v0.12.0..v0.12.1
