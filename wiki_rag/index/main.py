@@ -121,6 +121,12 @@ def main():
         # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
         input_file = loader_dump_path / input_candidate
 
+        # Skip indexing if this dump has already been indexed and --full was not requested.
+        marker_file = loader_dump_path / f"{collection_name}.indexed"
+        if not args.full and marker_file.exists() and marker_file.read_text().strip() == input_file.name:
+            logger.info(f"Dump {input_file.name} was already indexed. Nothing to do.")
+            return
+
         logger.info(f"Loading parsed pages from JSON: {input_file}, namespaces: {mediawiki_namespaces}")
         information = load_parsed_information(input_file)
         # TODO: Multiple site information handling should be implemented here.
@@ -167,6 +173,8 @@ def main():
             replace_previous_collection(collection_name, temp_collection_name)
             logger.info(f"Collection {collection_name} replaced with {temp_collection_name}.")
 
+        marker_file.write_text(input_file.name)
+        logger.info(f"Marked {input_file.name} as indexed ({marker_file.name}).")
         logger.info("wiki_rag-index finished.")
 
 
