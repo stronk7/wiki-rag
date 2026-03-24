@@ -47,6 +47,14 @@ def main():
         metavar="PATH",
         help="Path to the base dump JSON for incremental mode. Auto-detected if not provided.",
     )
+    parser.add_argument(
+        "--force-save",
+        action="store_true",
+        help=(
+            "Always generate a new dump file even when no changes are detected "
+            "(incremental mode only; ignored for full loads)."
+        ),
+    )
     args = parser.parse_args()
 
     dotenv_file = ROOT_DIR / ".env"
@@ -170,6 +178,14 @@ def main():
                 f"{len(final_log_states)} page(s) with delete/restore events, "
                 f"{len(pages_to_fetch)} page(s) to re-fetch."
             )
+
+            # If nothing changed, skip file generation unless --force-save was requested.
+            if not revised_page_ids and not final_log_states:
+                if args.force_save:
+                    logger.info("No changes detected, but --force-save is set. Generating dump anyway.")
+                else:
+                    logger.info("No changes detected since the base dump. Skipping file generation.")
+                    return
 
             # Parse the pages that need re-fetching using the existing pipeline.
             logger.info("Fetching, parsing and splitting changed pages")

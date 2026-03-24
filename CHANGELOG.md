@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- Loader: Skip dump file when no incremental changes are detected
+
 ## [0.13.1] - 2026-03-23
 
 ### Fixed
@@ -462,6 +468,7 @@ trivial and everything continues working exactly the same.
 
 
 
+[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.13.1..HEAD
 [0.13.1]: https://github.com/moodlehq/wiki-rag/compare/v0.13.0..v0.13.1
 [0.13.0]: https://github.com/moodlehq/wiki-rag/compare/v0.12.2..v0.13.0
 [0.12.2]: https://github.com/moodlehq/wiki-rag/compare/v0.12.1..v0.12.2
