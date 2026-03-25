@@ -28,6 +28,7 @@ ENV PYTHONPATH="/app"
 
 COPY ./LICENSE /app/
 COPY ./*.md /app/
+COPY ./scripts /app/scripts
 COPY ./wiki_rag /app/wiki_rag
 
 CMD ["wr-server"]
