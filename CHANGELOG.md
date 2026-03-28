@@ -13,11 +13,15 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 - Loader: Skip dump file when no incremental changes are detected by @stronk7 ([57106dd](https://github.com/moodlehq/wiki-rag/commit/57106dddf4241db64a105d5269d93d31da38a1ea))
 - Indexer: Skip re-indexing when dump was already indexed by @stronk7 ([2562b60](https://github.com/moodlehq/wiki-rag/commit/2562b60a97276861dfbb0b6834c532b6fcdd37f3))
 - Cleanup: Make the scripts directory available within the container by @stronk7 ([3986860](https://github.com/moodlehq/wiki-rag/commit/398686013ce353e6f13964eae23bbbaa16caf3a6))
-- MCP: Add bearer token authentication to the MCP server
+- MCP: Add bearer token authentication to the MCP server by @stronk7 ([b26e9ee](https://github.com/moodlehq/wiki-rag/commit/b26e9ee81b5f1f12c5eeab62811911e09ca20276))
   - **BREAKING**: Previously unprotected calls to the MCP server will now
 require to provide a valid bearer token, configured in the server, see
 `AUTH_TOKENS` and/or `AUTH_URL` for supported verifications.
 
+
+### Changed
+
+- Dependencies: Upgrade Langfuse to new major release 4.x
 
 ## [0.13.1] - 2026-03-23
 
