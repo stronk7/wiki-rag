@@ -177,11 +177,11 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
     auth_token = auth.credentials
 
     # Check if the token is in the local list (AUTH_TOKENS env variable).
-    authorised = _check_token_with_local_env(auth_token)
+    authorised = check_token_with_local_env(auth_token)
 
     # If not authorised yet, check the remote service (AUTH_URL env variable).
     if not authorised:
-        authorised = _check_token_with_service(auth_token)
+        authorised = check_token_with_service(auth_token)
 
     # Arrived here, not authorised, raise an exception.
     if not authorised:
@@ -192,7 +192,7 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
-def _check_token_with_local_env(token: str) -> bool:
+def check_token_with_local_env(token: str) -> bool:
     """Check the local environment variable to validate the token."""
     tokens = os.getenv("AUTH_TOKENS")
     if not tokens:
@@ -204,7 +204,7 @@ def _check_token_with_local_env(token: str) -> bool:
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
-def _check_token_with_service(token: str) -> bool:
+def check_token_with_service(token: str) -> bool:
     """Check the remote service to validate the token.
 
     Cached for 5 minutes to avoid hitting the service too often.

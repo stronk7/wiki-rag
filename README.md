@@ -58,8 +58,8 @@ To get started with Wiki-RAG, ensure you have the following:
    - `wr-load`: Will parse all the configured pages in the source Mediawiki site, extracting contents and other important metadata. All the generated information will be stored into a JSON file in the `data` directory. Supports `--incremental` mode to only re-fetch changed pages since a previous dump.
    - `wr-index`: In charge of creating (or incrementally updating) the collection in the vector index (Milvus) with all the information extracted in the previous step. Automatically uses incremental mode for incremental dumps; use `--full` to force a full reindex.
    - `wr-search`: A tiny CLI utility to perform searches against the RAG system from the command line.
-   - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM).
-   - `wr-mcp`: A complete and **UNPROTECTED** built-in MCP server that allows you to access to various parts of Wiki-RAG like prompts (system and use prompt with placeholders), resources (access to the source parsed documents) and tools (retrieve, optimise and generate) using the [MCP Protocol](https://modelcontextprotocol.io/).
+   - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM). Protected with bearer tokens (local list via `AUTH_TOKENS` and/or remote delegation via `AUTH_URL`). Supports streaming responses.
+   - `wr-mcp`: A complete built-in MCP server that allows you to access to various parts of Wiki-RAG like prompts (system and use prompt with placeholders), resources (access to the source parsed documents) and tools (retrieve, optimise and generate) using the [MCP Protocol](https://modelcontextprotocol.io/). Uses the same authentication schema as `wr-server`.
    - `wr-cleanup.sh`: A standalone Bash script to prune old dump files. Run `./scripts/wr-cleanup.sh --help` for full usage.
 
 ### Running with Docker (Milvus elsewhere)
@@ -137,8 +137,8 @@ To get started with Wiki-RAG, ensure you have the following:
    * Supports (opt-in) observability (tracing) with both LangSmith and Langfuse.
    * Prompts management (also opt-in) with LangSmith and Langfuse. Defaults apply otherwise.
    * Uses LangGraph for orchestration of the whole LLM pipeline.
-   * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Optionally protected with local or remote bearer tokens. Supports streaming responses.
-   * Exposed as a (unprotected!) MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools).
+   * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Protected with bearer tokens (local list via `AUTH_TOKENS` and/or remote delegation via `AUTH_URL`). Supports streaming responses.
+   * Exposed as a MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools). Uses the same authentication schema as the HTTP server.
    * Plenty of ideas for future work and improvements (see next section).
 
 ## Future Work
@@ -163,6 +163,7 @@ To get started with Wiki-RAG, ensure you have the following:
    prepare an evaluation collection /
    apply thresholds to results /
    better Open AI implementation, supporting more parameters /
+   add supports to the Responses Open AI API /
    ~~[better prompt management](https://github.com/moodlehq/wiki-rag/commit/2d6127f308fa7da21908f94818108cde59e39076)~~ /
    ~~[observability alternatives (langfuse, ...)](https://github.com/moodlehq/wiki-rag/commit/2f1be65900255d837bb8d4bf913a4a557cd2f404)~~ /
    context-size control /
@@ -172,6 +173,7 @@ To get started with Wiki-RAG, ensure you have the following:
    detect out of scope questions better /
    semantic routing /
    ~~[support MCP (model context protocol)](https://github.com/moodlehq/wiki-rag/issues/4)~~ /
+   protected (bearer token) MCP server /
    make everything pluggable /
    add unit and integration tests /
    automate checks and releases

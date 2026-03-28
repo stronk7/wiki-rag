@@ -17,6 +17,7 @@ import wiki_rag.mcp_server as mcp_global
 
 from wiki_rag import server
 from wiki_rag.index.util import load_parsed_information
+from wiki_rag.mcp_server.auth import WikiRagTokenVerifier
 from wiki_rag.mcp_server.util import build_optimise_graph, build_retrieve_graph
 from wiki_rag.search.util import build_graph, load_prompts_for_rag
 from wiki_rag.server.server import invoke_graph
@@ -28,7 +29,7 @@ from wiki_rag.server.util import (
 
 logger = logging.getLogger(__name__)
 
-mcp = FastMCP("Wiki-RAG MCP Server")
+mcp = FastMCP("Wiki-RAG MCP Server", auth=WikiRagTokenVerifier())
 
 
 @mcp.tool()
