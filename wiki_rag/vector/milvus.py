@@ -157,7 +157,7 @@ class MilvusVector(BaseVector):
             collection_name: str,
             embedding_model: str,
             embedding_dimensions: int,
-            query: str,
+            queries: list[str],
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
@@ -169,11 +169,12 @@ class MilvusVector(BaseVector):
         the former is incomplete and does not support all the features used here. In general, always
         use the complete SDKs is a good recommendation.
         """
-        # Get the embeddings to look for in the dense search.
-        embeddings = self._get_query_embeddings(
+        # Embed all query texts and average for the dense search.
+        # When a single query is given this is equivalent to the previous behaviour.
+        embeddings = self._embed_and_average_queries(
             embedding_model=embedding_model,
             embedding_dimensions=embedding_dimensions,
-            query=query,
+            queries=queries,
         )
 
         client = MilvusClient(self.uri)
@@ -205,7 +206,7 @@ class MilvusVector(BaseVector):
             "drop_ratio_search": sparse_search_drop_ratio,
         }
         sparse_search = AnnSearchRequest(
-            [query],
+            [queries[0]],
             "sparse_vector",
             sparse_search_params,
             limit=sparse_search_limit,

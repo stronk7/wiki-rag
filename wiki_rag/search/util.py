@@ -3,6 +3,7 @@
 
 """Util functions to use langgraph to conduct simple searches against the indexed database."""
 
+import asyncio
 import logging
 import os
 import pprint
@@ -50,6 +51,8 @@ class ContextSchema(TypedDict):
     embedding_dimension: int
     llm_model: str
     contextualisation_model: str | None
+    hyde_enabled: bool
+    hyde_passages: int
     search_distance_cutoff: float
     max_completion_tokens: int
     temperature: float
@@ -66,6 +69,7 @@ class RagState(TypedDict):
 
     history: list[BaseMessage]
     question: str
+    hyde_texts: list[str]
     vector_search: list[dict]
     context: list[str]
     sources: list[str]
@@ -83,15 +87,18 @@ def build_graph(context: ContextSchema) -> CompiledStateGraph:
     """Build the graph for the langgraph search."""
     graph_builder = StateGraph(RagState, ContextSchema)
     graph_builder.add_node(query_rewrite)
+    graph_builder.add_node(hyde_rewrite)
     graph_builder.add_sequence([
         retrieve,
         optimise,
         generate
     ])
-    graph_builder.add_conditional_edges("query_rewrite", retrieve_or_chitchat, {
+    graph_builder.add_conditional_edges("query_rewrite", route_after_rewrite, {
         "retrieve": "retrieve",
+        "hyde_rewrite": "hyde_rewrite",
         "chitchat": END,
     })
+    graph_builder.add_edge("hyde_rewrite", "retrieve")
 
     graph_builder.add_edge(START, "query_rewrite")
     graph: CompiledStateGraph = graph_builder.compile().with_config(
@@ -101,25 +108,30 @@ def build_graph(context: ContextSchema) -> CompiledStateGraph:
     return graph
 
 
-def retrieve_or_chitchat(state: RagState) -> Literal["retrieve", "chitchat"]:
-    """Check if the answer is a chitchat or a rewrite.
+def route_after_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> Literal["retrieve", "hyde", "chitchat"]:
+    """Route after query rewrite: to chitchat, HyDE, or direct retrieval.
 
-    This is used to decide if we need to continue with the search or not.
+    This is used to decide the next step after the query rewrite node.
     """
-    # If the answer has already being set, we are done (probably a chitchat).
+    # If the answer has already been set, we are done (probably a chitchat).
     if "answer" in state:
         return "chitchat"
 
-    return "retrieve"  # Continue with the search.
+    # Route through HyDE when enabled and a contextualisation model is available.
+    # HyDE uses the same model as query_rewrite, so it only runs when that model is set.
+    if runtime.context["hyde_enabled"] and runtime.context["contextualisation_model"]:
+        return "hyde_rewrite"
+
+    return "retrieve"  # Continue directly to retrieval.
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
 def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     """Load the prompts for the RAG model.
 
-    This function results are cached for 5 minutes to avoid unnecessary calls to the LangSmith API.
+    This function results are cached for 5 minutes to avoid unnecessary
+    calls to the LangSmith/Langsmith APIs.
     """
-    chat_prompt = ChatPromptTemplate([])
     prefixed_prompt_name = prompt_name  # We'll add the prefix later, depending on the provider.
     prompt_provider = "local"
 
@@ -249,9 +261,32 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
             "Do NOT make any reference in the answer to these guidelines."
         )
         user_message = HumanMessagePromptTemplate.from_template(
-            "Original Question: {question}"
+            "Question: {question}"
             ""
             "Answer: "
+        )
+
+    # If we are using the wiki-rag-hyde prompt, let's update the needed pieces.
+    elif prompt_name == "wiki-rag-hyde":
+        system_prompt = SystemMessagePromptTemplate.from_template(
+            "You are an expert technical writer for {task_def}. "
+            ""
+            "Given a question, write a short passage (2 to 4 sentences) that would appear "
+            "in {kb_name} as the answer to the question. "
+            ""
+            "Write the passage as if it were an excerpt from the official documentation. "
+            ""
+            "Do not include any preamble, metadata, or references. "
+            ""
+            "The passage should be factual in tone and directly address the question, "
+            "even if you need to hypothesise the answer. "
+            ""
+            "Focus on {product} concepts and terminology."
+        )
+        user_message = HumanMessagePromptTemplate.from_template(
+            "Question: {question}"
+            ""
+            "Hypothetical documentation passage: "
         )
 
     # Let's build the complete prompt with the system, the history and the user message.
@@ -265,7 +300,7 @@ def load_prompts_for_rag_from_local(prompt_name: str) -> ChatPromptTemplate:
 
 
 async def query_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
-    """Rewrite the question using the query rewrite model.
+    """Rewrite the question using the contextualisation model.
 
     This is a simple query rewrite model that will be used to rewrite the question
     before sending it to the search engine. It will be used to improve the search results.
@@ -305,6 +340,49 @@ async def query_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dic
     return {}
 
 
+async def hyde_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
+    """Generate hypothetical document embeddings (HyDE) for the question.
+
+    Instead of using the question directly for dense vector search, generate one or more
+    hypothetical passages that would appear in the knowledge base if the answer existed.
+    The passages are embedded and their embeddings are averaged. This averaged embedding
+    is then used for the dense search in the retrieve step, while the original (rewritten)
+    question is still used for the BM25 sparse search.
+
+    The number of passages is controlled by `runtime.context["hyde_passages"]` (default 1).
+    When multiple passages are generated, they are produced in parallel.
+    """
+    hyde_prompt = load_prompts_for_rag(f"{runtime.context['prompt_name']}-hyde")
+
+    n = max(1, runtime.context["hyde_passages"])
+    model = runtime.context["contextualisation_model"]
+    assert model is not None  # Guaranteed by route_after_rewrite; satisfies type checker.
+
+    async def generate_passage() -> str:
+        """Generate a single hypothetical passage."""
+        chat = await hyde_prompt.ainvoke({
+            "question": state["question"],
+            "product": runtime.context["product"],
+            "task_def": runtime.context["task_def"],
+            "kb_name": runtime.context["kb_name"],
+            "history": [],
+        })
+        llm = ChatOpenAI(
+            model=model,
+            max_completion_tokens=256,  # TODO: Make these 3 configurable.
+            top_p=0.85,
+            temperature=1.0,  # High, more varietè.
+            disable_streaming=True,
+        )
+        response = await llm.ainvoke(chat)
+        return str(response.content)
+
+    passages = await asyncio.gather(*[generate_passage() for _ in range(n)])
+    logger.debug(f"HyDE generated {n} passage(s): {passages}")
+
+    return {"hyde_texts": list(passages)}
+
+
 async def contextualise_question(
         prompt: ChatPromptTemplate,
         question: str,
@@ -330,7 +408,7 @@ async def contextualise_question(
 
     llm = ChatOpenAI(
         model=model,
-        max_completion_tokens=1536,  # TODO: Make these 3 configurable.
+        max_completion_tokens=256,  # TODO: Make these 3 configurable.
         top_p=0.85,
         temperature=0.1,
         disable_streaming=True,
@@ -346,11 +424,15 @@ async def contextualise_question(
 
 async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Retrieve the best matches from the indexed database."""
+    queries = [state["question"]]
+    if state.get("hyde_texts"):
+        queries += state["hyde_texts"]
+
     results = vector.store.retrieve(
         collection_name=runtime.context["collection_name"],
         embedding_model=runtime.context["embedding_model"],
         embedding_dimensions=runtime.context["embedding_dimension"],
-        query=state["question"],
+        queries=queries,
     )
 
     # TODO: Return only the docs which distance is below the cutoff.

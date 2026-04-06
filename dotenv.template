@@ -26,6 +26,10 @@ EMBEDDING_DIMENSIONS=768
 LLM_MODEL="your_llm_model"
 # Model used to contextualize the questions for RAG (optional feature).
 # CONTEXTUALISATION_MODEL="your_llm_model"
+# Enable HyDE (Hypothetical Document Embeddings) for search (requires CONTEXTUALISATION_MODEL).
+# SEARCH_HYDE_ENABLED="true"
+# Number of hypothetical passages to generate per query (default 1). Multiple passages are averaged.
+# SEARCH_HYDE_PASSAGES=1
 
 # OpenAI wrapper base URL.
 WRAPPER_API_BASE="0.0.0.0:8080"

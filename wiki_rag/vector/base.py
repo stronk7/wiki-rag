@@ -77,20 +77,24 @@ class BaseVector(ABC):
         collection_name: str,
         embedding_model: str,
         embedding_dimensions: int,
-        query: str,
+        queries: list[str],
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
-        The function is in charge of converting the query to the specified embeddings,
-        using the specified embedding model and dimensions. Note that there is the
-        'self._get_query_embeddings()' function that supports any OpenAI compatible
-        embeddings entry point available to get that done for any vector store.
+        The function embeds all strings in `queries` and averages the resulting
+        vectors for the dense search. `queries[0]` is always used as-is for any
+        text-based sparse search (e.g. BM25). A single-element list is equivalent
+        to the previous single-query behaviour.
+
+        The `_embed_and_average_queries()` helper is available to compute the
+        averaged embedding from any OpenAI-compatible endpoint.
 
         Args:
             collection_name: Target collection / index.
             embedding_model: Embedding model to use.
             embedding_dimensions: Embedding dimensions to use.
-            query: Query to calculate the embeddings.
+            queries: One or more query strings. `queries[0]` is used for sparse
+                (BM25) search; all strings are embedded and averaged for dense search.
 
         Returns:
             list of matching results
@@ -140,36 +144,42 @@ class BaseVector(ABC):
 
         """
 
-    def _get_query_embeddings(self,
+    def _embed_and_average_queries(self,
         embedding_model: str,
         embedding_dimensions: int,
-        query: str,
+        queries: list[str],
     ) -> list[float]:
-        """Return embeddings for a given a query.
+        """Return averaged embeddings for one or more query strings.
 
-        Using an available OpenAI compatible embedding entry point, an embedding model and the
-        desired embedding dimensions, return the query embeddings. The entry point is defined
-        automatically with the OPENAI_API_BASE and OPEN_API_KEY environment variables.
+        For a single query, returns the embedding directly (fast path).
+        For multiple queries, embeds all strings and returns the element-wise
+        average of the resulting vectors.
 
-        Note that, at the moment, we are using LangChain OpenAI embeddings, because we are
-        already using it for other dependencies (LangGraph, LangSmith, ...) but this could be
-        replaced by upstream OpenAI SDK or any other embeddings API.
+        The embedding entry point is configured automatically via the
+        OPENAI_API_BASE and OPENAI_API_KEY environment variables.
 
         Args:
             embedding_model: Embedding model to use.
             embedding_dimensions: Embedding dimensions to use.
-            query: Query to calculate the embeddings.
+            queries: One or more query strings to embed and average.
 
         Returns:
-            list of (float) embeddings.
+            list of (float) embeddings representing the averaged vector.
 
         """
+        assert queries, "queries must not be empty"
         embeddings = OpenAIEmbeddings(
             model=embedding_model,
             dimensions=embedding_dimensions,
             check_embedding_ctx_length=False,
         )
-        return embeddings.embed_query(query.strip())
+        if len(queries) == 1:
+            return embeddings.embed_query(queries[0].strip())
+
+        all_embeddings = embeddings.embed_documents([q.strip() for q in queries])
+        n = len(all_embeddings)
+        dims = len(all_embeddings[0])
+        return [sum(vec[i] for vec in all_embeddings) / n for i in range(dims)]
 
 
 def load_vector_store(name: str) -> BaseVector:

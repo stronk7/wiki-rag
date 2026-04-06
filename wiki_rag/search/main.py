@@ -156,6 +156,10 @@ async def run():
 
     contextualisation_model = os.getenv("CONTEXTUALISATION_MODEL")
 
+    # HyDE settings (opt-in)
+    search_hyde_enabled = os.getenv("SEARCH_HYDE_ENABLED", "false") == "true"
+    search_hyde_passages = int(os.getenv("SEARCH_HYDE_PASSAGES", "1"))
+
     vector.store = load_vector_store(index_vendor)  # Set up the global wiki_rag.vector.store to be used elsewhere.
 
     # Let's accept arg[1] as the question to be asked.
@@ -184,6 +188,8 @@ async def run():
         embedding_dimension=embedding_dimensions,
         llm_model=llm_model,
         contextualisation_model=contextualisation_model,
+        hyde_enabled=search_hyde_enabled,
+        hyde_passages=search_hyde_passages,
         search_distance_cutoff=0.6,
         max_completion_tokens=1536,  # TODO: Make these 3 configurable.
         temperature=0.05,

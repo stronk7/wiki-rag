@@ -126,8 +126,9 @@ To get started with Wiki-RAG, ensure you have the following:
    * Loads the KB into a vector database (Milvus) for fast retrieval.
    * Hybrid retrieval using both vector and keyword search with fusion reranking.
    * Contextual-aware query rewrite for a better chat experience.
+   * Optional HyDE (Hypothetical Document Embeddings) support, with configurable number of passages.
    * Support for chit-chatting cases, avoiding out-of-scope questions (limited but effective).
-   * Performs post-retrieval optimizations to improve the quality of the retrieved documents:
+   * Performs post-retrieval optimisations to improve the quality of the retrieved documents:
        * POP (popularity): In charge of boosting the most popular chunks.
        * POC (parent, own and child): Add those related chunks to the retrieved ones.
    * Many configuration options:
@@ -138,7 +139,7 @@ To get started with Wiki-RAG, ensure you have the following:
    * Prompts management (also opt-in) with LangSmith and Langfuse. Defaults apply otherwise.
    * Uses LangGraph for orchestration of the whole LLM pipeline.
    * Exposed as a model using standard OpenAI API endpoints (`v1/models` and `v1/chat/completions`). Protected with bearer tokens (local list via `AUTH_TOKENS` and/or remote delegation via `AUTH_URL`). Supports streaming responses.
-   * Exposed as a MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools). Uses the same authentication schema as the HTTP server.
+   * Exposed as a MCP server (Model Context Protocol) with all the required endpoints (prompts, resources and tools). Using the same authentication schema as the HTTP server.
    * Plenty of ideas for future work and improvements (see next section).
 
 ## Future Work
@@ -159,6 +160,7 @@ To get started with Wiki-RAG, ensure you have the following:
    add other algos, apart from current POP and POC /
    support multi-level searches /
    ~~[context-aware rag](https://github.com/moodlehq/wiki-rag/commit/77cac73469da7c07710851be51321b13e1c923fc)~~ /
+   HyDE support /
    extra querying techniques /
    prepare an evaluation collection /
    apply thresholds to results /

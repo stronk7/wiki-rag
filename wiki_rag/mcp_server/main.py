@@ -154,6 +154,10 @@ def main():
 
     contextualisation_model = os.getenv("CONTEXTUALISATION_MODEL")
 
+    # HyDE settings (opt-in)
+    search_hyde_enabled = os.getenv("SEARCH_HYDE_ENABLED", "false") == "true"
+    search_hyde_passages = int(os.getenv("SEARCH_HYDE_PASSAGES", "1"))
+
     mcp_api_base = os.getenv("MCP_API_BASE")
     if not mcp_api_base:
         logger.error("MCP API base not found in environment. Exiting.")
@@ -200,6 +204,8 @@ def main():
         embedding_dimension=embedding_dimensions,
         llm_model=llm_model,
         contextualisation_model=contextualisation_model,
+        hyde_enabled=search_hyde_enabled,
+        hyde_passages=search_hyde_passages,
         search_distance_cutoff=0.6,
         max_completion_tokens=1536,  # TODO: Make these 3 configurable.
         temperature=0.05,

@@ -17,11 +17,11 @@ and commits should be formatted using [Conventional Commits](https://www.convent
   - **BREAKING**: Previously unprotected calls to the MCP server will now
 require to provide a valid bearer token, configured in the server, see
 `AUTH_TOKENS` and/or `AUTH_URL` for supported verifications.
-
+- Search: Add HyDE (Hypothetical Document Embeddings) support
 
 ### Changed
 
-- Dependencies: Upgrade Langfuse to new major release 4.x
+- Dependencies: Upgrade Langfuse to new major release 4.x by @stronk7 ([6b9372c](https://github.com/moodlehq/wiki-rag/commit/6b9372cf2d111069ac343225848eae830ad89d2a))
 
 ## [0.13.1] - 2026-03-23
 
