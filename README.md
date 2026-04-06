@@ -160,7 +160,7 @@ To get started with Wiki-RAG, ensure you have the following:
    add other algos, apart from current POP and POC /
    support multi-level searches /
    ~~[context-aware rag](https://github.com/moodlehq/wiki-rag/commit/77cac73469da7c07710851be51321b13e1c923fc)~~ /
-   HyDE support /
+   ~~[HyDE support](https://github.com/moodlehq/wiki-rag/commit/0548728290ddf5e6374a053fc4f0f1759206c3e7)~~ /
    extra querying techniques /
    prepare an evaluation collection /
    apply thresholds to results /

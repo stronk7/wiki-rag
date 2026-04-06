@@ -6,7 +6,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.14.0] - 2026-04-06
 
 ### Added
 
@@ -17,11 +17,14 @@ and commits should be formatted using [Conventional Commits](https://www.convent
   - **BREAKING**: Previously unprotected calls to the MCP server will now
 require to provide a valid bearer token, configured in the server, see
 `AUTH_TOKENS` and/or `AUTH_URL` for supported verifications.
-- Search: Add HyDE (Hypothetical Document Embeddings) support
+
+- Search: Add HyDE (Hypothetical Document Embeddings) support by @stronk7 ([0548728](https://github.com/moodlehq/wiki-rag/commit/0548728290ddf5e6374a053fc4f0f1759206c3e7))
 
 ### Changed
 
 - Dependencies: Upgrade Langfuse to new major release 4.x by @stronk7 ([6b9372c](https://github.com/moodlehq/wiki-rag/commit/6b9372cf2d111069ac343225848eae830ad89d2a))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.13.1...v0.14.0
 
 ## [0.13.1] - 2026-03-23
 
@@ -479,7 +482,7 @@ trivial and everything continues working exactly the same.
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.13.1..HEAD
+[0.14.0]: https://github.com/moodlehq/wiki-rag/compare/v0.13.1..v0.14.0
 [0.13.1]: https://github.com/moodlehq/wiki-rag/compare/v0.13.0..v0.13.1
 [0.13.0]: https://github.com/moodlehq/wiki-rag/compare/v0.12.2..v0.13.0
 [0.12.2]: https://github.com/moodlehq/wiki-rag/compare/v0.12.1..v0.12.2
