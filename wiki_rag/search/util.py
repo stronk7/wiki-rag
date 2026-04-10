@@ -424,15 +424,23 @@ async def contextualise_question(
 
 async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Retrieve the best matches from the indexed database."""
-    queries = [state["question"]]
-    if state.get("hyde_texts"):
-        queries += state["hyde_texts"]
+    hyde_texts = state.get("hyde_texts")
+    if hyde_texts:
+        # HyDE path: dense search uses only the hypothetical passages so it operates in
+        # document space (document-to-document similarity — the core HyDE insight).
+        # The original question is kept for BM25 sparse search where it belongs.
+        queries = hyde_texts
+        sparse_query = state["question"]
+    else:
+        queries = [state["question"]]
+        sparse_query = None  # defaults to queries[0] inside retrieve()
 
     results = vector.store.retrieve(
         collection_name=runtime.context["collection_name"],
         embedding_model=runtime.context["embedding_model"],
         embedding_dimensions=runtime.context["embedding_dimension"],
         queries=queries,
+        sparse_query=sparse_query,
     )
 
     # TODO: Return only the docs which distance is below the cutoff.

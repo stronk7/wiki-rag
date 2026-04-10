@@ -158,6 +158,7 @@ class MilvusVector(BaseVector):
             embedding_model: str,
             embedding_dimensions: int,
             queries: list[str],
+            sparse_query: str | None = None,
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
@@ -170,6 +171,8 @@ class MilvusVector(BaseVector):
         use the complete SDKs is a good recommendation.
         """
         # Embed all query texts and average for the dense search.
+        # When HyDE is active, queries contains only the hypothetical passages so that the
+        # dense search operates in document space rather than query space (the core HyDE insight).
         # When a single query is given this is equivalent to the previous behaviour.
         embeddings = self._embed_and_average_queries(
             embedding_model=embedding_model,
@@ -201,12 +204,14 @@ class MilvusVector(BaseVector):
         )
 
         # Define the sparse search and its parameters.
+        # sparse_query defaults to queries[0] when not supplied (non-HyDE path).
+        bm25_text = sparse_query if sparse_query is not None else queries[0]
         sparse_search_params = {
             "metric_type": "BM25",
             "drop_ratio_search": sparse_search_drop_ratio,
         }
         sparse_search = AnnSearchRequest(
-            [queries[0]],
+            [bm25_text],
             "sparse_vector",
             sparse_search_params,
             limit=sparse_search_limit,

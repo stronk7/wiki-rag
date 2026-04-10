@@ -94,6 +94,83 @@ class TestLoadPromptsForRagFromLocalHyde(unittest.TestCase):
         self.assertIsInstance(prompt.messages[1], MessagesPlaceholder)
 
 
+class TestRetrieveNode(unittest.IsolatedAsyncioTestCase):
+
+    def _make_runtime(self) -> SimpleNamespace:
+        return SimpleNamespace(context={
+            "collection_name": "test_collection",
+            "embedding_model": "text-embedding-3-small",
+            "embedding_dimension": 512,
+        })
+
+    async def test_retrieve_without_hyde_uses_question_for_both(self):
+        """Without HyDE, the question is passed as queries[0]; sparse_query is None."""
+        from wiki_rag.search.util import retrieve
+
+        state = _make_state(question="What is a quiz?", hyde_texts=[])
+        runtime = self._make_runtime()
+
+        mock_store = MagicMock()
+        mock_store.retrieve = MagicMock(return_value=[{"id": "1"}])
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store = mock_store
+            await retrieve(state, runtime)  # type: ignore[arg-type]
+
+        mock_store.retrieve.assert_called_once_with(
+            collection_name="test_collection",
+            embedding_model="text-embedding-3-small",
+            embedding_dimensions=512,
+            queries=["What is a quiz?"],
+            sparse_query=None,
+        )
+
+    async def test_retrieve_with_hyde_uses_passages_for_dense_question_for_sparse(self):
+        """With HyDE, only passages go to dense queries; original question is sparse_query."""
+        from wiki_rag.search.util import retrieve
+
+        passages = ["A quiz is a formative assessment tool.", "Teachers use quizzes to test recall."]
+        state = _make_state(question="What is a quiz?", hyde_texts=passages)
+        runtime = self._make_runtime()
+
+        mock_store = MagicMock()
+        mock_store.retrieve = MagicMock(return_value=[{"id": "1"}])
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store = mock_store
+            await retrieve(state, runtime)  # type: ignore[arg-type]
+
+        mock_store.retrieve.assert_called_once_with(
+            collection_name="test_collection",
+            embedding_model="text-embedding-3-small",
+            embedding_dimensions=512,
+            queries=passages,
+            sparse_query="What is a quiz?",
+        )
+
+    async def test_retrieve_with_empty_hyde_texts_falls_back_to_question(self):
+        """An empty hyde_texts list is treated the same as no HyDE (falsy check)."""
+        from wiki_rag.search.util import retrieve
+
+        state = _make_state(question="What is a quiz?", hyde_texts=[])
+        runtime = self._make_runtime()
+
+        mock_store = MagicMock()
+        mock_store.retrieve = MagicMock(return_value=[])
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store = mock_store
+            await retrieve(state, runtime)  # type: ignore[arg-type]
+
+        mock_store.retrieve.assert_called_once_with(
+            collection_name="test_collection",
+            embedding_model="text-embedding-3-small",
+            embedding_dimensions=512,
+            queries=["What is a quiz?"],
+            sparse_query=None,
+        )
+
+
 class TestHydeNode(unittest.IsolatedAsyncioTestCase):
 
     async def test_hyde_node_single_passage_returns_texts(self):

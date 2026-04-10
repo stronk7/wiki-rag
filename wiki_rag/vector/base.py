@@ -78,13 +78,20 @@ class BaseVector(ABC):
         embedding_model: str,
         embedding_dimensions: int,
         queries: list[str],
+        sparse_query: str | None = None,
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
         The function embeds all strings in `queries` and averages the resulting
-        vectors for the dense search. `queries[0]` is always used as-is for any
-        text-based sparse search (e.g. BM25). A single-element list is equivalent
-        to the previous single-query behaviour.
+        vectors for the dense search. `sparse_query` is used as-is for any
+        text-based sparse search (e.g. BM25); when omitted it defaults to
+        `queries[0]`. A single-element `queries` list with no `sparse_query`
+        is equivalent to the previous single-query behaviour.
+
+        When HyDE is active, callers should pass only the hypothetical passages
+        in `queries` (for faithful document-to-document dense retrieval) and
+        supply the original rewritten question as `sparse_query` so that the
+        BM25 channel still operates on the actual user query.
 
         The `_embed_and_average_queries()` helper is available to compute the
         averaged embedding from any OpenAI-compatible endpoint.
@@ -93,8 +100,11 @@ class BaseVector(ABC):
             collection_name: Target collection / index.
             embedding_model: Embedding model to use.
             embedding_dimensions: Embedding dimensions to use.
-            queries: One or more query strings. `queries[0]` is used for sparse
-                (BM25) search; all strings are embedded and averaged for dense search.
+            queries: One or more query strings embedded and averaged for dense
+                search. When HyDE is enabled these should be the hypothetical
+                passages only (not the original query).
+            sparse_query: Raw text for sparse (BM25) search. Defaults to
+                ``queries[0]`` when ``None``.
 
         Returns:
             list of matching results
