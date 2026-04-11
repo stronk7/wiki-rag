@@ -4,7 +4,6 @@
 """Util functions to serve langgraph behind an OpenAI API wrapper."""
 
 import logging
-import os
 import time
 import uuid
 
@@ -20,7 +19,10 @@ from langchain_community.adapters import openai
 from langchain_core.messages import BaseMessage
 from pydantic import UUID4, BaseModel, Field
 
-from wiki_rag import LOG_LEVEL, server
+import wiki_rag.config as _config_module
+
+from wiki_rag import server
+from wiki_rag.config import LOG_LEVEL
 
 logger = logging.getLogger(__name__)
 
@@ -193,14 +195,14 @@ async def validate_authentication(auth: HTTPAuthorizationCredentials = Depends(H
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
 def check_token_with_local_env(token: str) -> bool:
-    """Check the local environment variable to validate the token."""
-    tokens = os.getenv("AUTH_TOKENS")
-    if not tokens:
+    """Check the configured token list to validate the bearer token."""
+    assert _config_module.cfg is not None, "load_config() must be called before check_token_with_local_env()"
+    allowed_tokens = _config_module.cfg.auth_tokens
+    if not allowed_tokens:
         return False
 
-    logger.info("Checking token with local env variable: AUTH_TOKENS")
-    allowed_tokens = [token.strip() for token in tokens.split(",")]
-    return True if allowed_tokens and token in allowed_tokens else False
+    logger.info("Checking token against configured AUTH_TOKENS list.")
+    return token in allowed_tokens
 
 
 @cached(cache=TTLCache(maxsize=64, ttl=0 if LOG_LEVEL == "DEBUG" else 300))
@@ -209,7 +211,8 @@ def check_token_with_service(token: str) -> bool:
 
     Cached for 5 minutes to avoid hitting the service too often.
     """
-    auth_url = os.getenv("AUTH_URL")
+    assert _config_module.cfg is not None, "load_config() must be called before check_token_with_service()"
+    auth_url = _config_module.cfg.auth_url
     if not auth_url:
         return False
 

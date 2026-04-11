@@ -5,7 +5,6 @@
 
 import asyncio
 import logging
-import os
 import pprint
 
 from typing import Annotated, Literal, TypedDict
@@ -28,9 +27,10 @@ from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langsmith.client import Client
 
+import wiki_rag.config as _config_module
 import wiki_rag.vector as vector
 
-from wiki_rag import LOG_LEVEL
+from wiki_rag.config import LOG_LEVEL, Config
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,57 @@ class ContextSchema(TypedDict):
     wrapper_chat_max_turns: int
     wrapper_chat_max_tokens: int
     wrapper_model_name: str
+    langsmith_prompts: bool
+    langsmith_prompt_prefix: str
+    langfuse_prompts: bool
+    langfuse_prompt_prefix: str
     langfuse_callback: CallbackHandler | None
+
+
+def build_context_schema(
+    cfg: Config,
+    stream: bool = False,
+    langfuse_callback: CallbackHandler | None = None,
+) -> ContextSchema:
+    """Build a :class:`ContextSchema` from a resolved :class:`~wiki_rag.config.Config`.
+
+    Args:
+        cfg: The loaded Config instance.
+        stream: Whether the response should be streamed.
+        langfuse_callback: Optional Langfuse tracing callback.
+
+    Returns:
+        Populated ContextSchema ready for use as a LangGraph context.
+
+    """
+    wrapper_model_name = cfg.wrapper.model_name or cfg.collection_name
+    return ContextSchema(
+        prompt_name=cfg.search.prompt_name,
+        product=cfg.search.product,
+        task_def=cfg.search.task_def,
+        kb_name=cfg.search.kb_name,
+        kb_url=cfg.mediawiki.url,
+        collection_name=cfg.collection_name,
+        embedding_model=cfg.embedding_model,
+        embedding_dimension=cfg.embedding_dimensions,
+        llm_model=cfg.llm_model,
+        contextualisation_model=cfg.contextualisation_model,
+        hyde_enabled=cfg.search.hyde_enabled,
+        hyde_passages=cfg.search.hyde_passages,
+        search_distance_cutoff=cfg.search.distance_cutoff,
+        max_completion_tokens=cfg.search.max_completion_tokens,
+        temperature=cfg.search.temperature,
+        top_p=cfg.search.top_p,
+        stream=stream,
+        wrapper_chat_max_turns=cfg.wrapper.chat_max_turns,
+        wrapper_chat_max_tokens=cfg.wrapper.chat_max_tokens,
+        wrapper_model_name=wrapper_model_name,
+        langsmith_prompts=cfg.langsmith.prompts,
+        langsmith_prompt_prefix=cfg.langsmith.prompt_prefix,
+        langfuse_prompts=cfg.langfuse.prompts,
+        langfuse_prompt_prefix=cfg.langfuse.prompt_prefix,
+        langfuse_callback=langfuse_callback,
+    )
 
 
 class RagState(TypedDict):
@@ -135,16 +185,19 @@ def load_prompts_for_rag(prompt_name: str) -> ChatPromptTemplate:
     prefixed_prompt_name = prompt_name  # We'll add the prefix later, depending on the provider.
     prompt_provider = "local"
 
+    assert _config_module.cfg is not None, "load_config() must be called before load_prompts_for_rag()"
+    _cfg = _config_module.cfg
+
     # TODO: Be able to fallback to env/config based prompts too. Or also from other prompt providers.
     try:
-        if os.getenv("LANGSMITH_PROMPTS", "false") == "true":
-            prefixed_prompt_name = f"{os.getenv("LANGSMITH_PROMPT_PREFIX")}{prompt_name}"
+        if _cfg.langsmith.prompts:
+            prefixed_prompt_name = f"{_cfg.langsmith.prompt_prefix}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from LangSmith.")
             prompt_provider = "LangSmith"
             chat_prompt = Client().pull_prompt(prefixed_prompt_name)
-        elif os.getenv("LANGFUSE_PROMPTS", "false") == "true":
+        elif _cfg.langfuse.prompts:
             langfuse = Langfuse()
-            prefixed_prompt_name = f"{os.getenv("LANGFUSE_PROMPT_PREFIX")}{prompt_name}"
+            prefixed_prompt_name = f"{_cfg.langfuse.prompt_prefix}{prompt_name}"
             logger.info(f"Loading the prompt {prefixed_prompt_name} from Langfuse.")
             prompt_provider = "Langfuse"
             langfuse_prompt = langfuse.get_prompt(prefixed_prompt_name)

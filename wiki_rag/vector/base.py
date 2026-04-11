@@ -10,10 +10,16 @@ trivial to swap backends by changing the `INDEX_VENDOR` environment
 variable. And a few more, specific for each vector store (url, key, port, ...).
 """
 
+import logging
+
 from abc import ABC, abstractmethod
 from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
+
+import wiki_rag.config as _config_module
+
+logger = logging.getLogger(__name__)
 
 
 class BaseVector(ABC):
@@ -192,22 +198,35 @@ class BaseVector(ABC):
         return [sum(vec[i] for vec in all_embeddings) / n for i in range(dims)]
 
 
-def load_vector_store(name: str) -> BaseVector:
+def load_vector_store(name: str) -> "BaseVector":
     """Instantiate a vector store by its name.
 
-    For example "milvus" will instantiate a wiki_rag.vector.milvus.MilvusVector class.
+    The resolved :data:`~wiki_rag.config.cfg` singleton is passed to the
+    vector-store constructor so that backends can read connection settings
+    without calling ``os.getenv()`` directly.
+
+    For example ``"milvus"`` will instantiate
+    :class:`wiki_rag.vector.milvus.MilvusVector`.
 
     Args:
-        name: Name of the vector store
+        name: Name of the vector store backend (e.g. ``"milvus"``).
+
+    Returns:
+        Initialised :class:`BaseVector` instance.
+
+    Raises:
+        RuntimeError: When the backend module or class cannot be imported.
 
     """
+    assert _config_module.cfg is not None, "load_config() must be called before load_vector_store()"
+
     module_name = f"wiki_rag.vector.{name}"
     class_name = f"{name.capitalize()}Vector"
 
     try:
         module = __import__(module_name, fromlist=[class_name])
         vector_class = getattr(module, class_name)
-        vector_instance = vector_class()
+        vector_instance = vector_class(_config_module.cfg)
     except Exception as exc:
         msg = f"Cannot load vector backend {class_name!r} from {module_name!r}"
         raise RuntimeError(msg) from exc

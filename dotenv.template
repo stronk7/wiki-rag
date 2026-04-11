@@ -1,70 +1,39 @@
-# NOTE: This is a template file. Copy this file to .env and fill in the values.
-# TODO: All this configuration will be moved to config.yml and this file will be removed then.
+# NOTE: This is a template for the secrets-only .env file.
+# Copy this file to .env and fill in the values for your deployment.
+#
+# Non-secret settings have moved to config.yml.
+# See config.yml.template for the full list of non-secret configuration options.
+#
+# Load order: .env is loaded FIRST; config.yml values override .env values.
+# Secrets defined here are NEVER read from config.yml.
 
-# Any OpenAI compatible provider (OpenAI, AI Proxy, Ollama, ...)
+# ---------------------------------------------------------------------------
+# OpenAI-compatible provider (OpenAI, AI Proxy, Ollama, ...)
+# ---------------------------------------------------------------------------
 OPENAI_API_BASE="https://openai.com/v1"
 # OPENAI_API_KEY="<<<YOUR_OPENAI_API_KEY>>>"
 
-# Mediawiki instance base URL.
-MEDIAWIKI_URL="https://your.mediawiki/base/url"
-# Comma separated list (general and others, see https://www.mediawiki.org/wiki/Manual:Namespace#Built-in_namespaces)
-MEDIAWIKI_NAMESPACES="0,4,12"
-MEDIAWIKI_EXCLUDED="categories:Category A, Category B;wikitext:Some regex to exclude"
-MEDIAWIKI_KEEP_TEMPLATES="Template1, Template2"
+# ---------------------------------------------------------------------------
+# Milvus credentials
+# For a URL with embedded credentials (legacy):
+#   MILVUS_URL="https://user:password@host:port"  # pragma: allowlist secret
+# For the recommended split approach, set the token separately:
+# ---------------------------------------------------------------------------
+# MILVUS_TOKEN="<<<YOUR_MILVUS_TOKEN_OR_USER:PASSWORD>>>"  # pragma: allowlist secret
 
-# This is the DB collection name.
-COLLECTION_NAME="your_collection_name"
-# Defaults to PROJECT_DIR/data
-LOADER_DUMP_PATH=
-# Milvus connection URL.
-MILVUS_URL="http://0.0.0.0:19530"
+# ---------------------------------------------------------------------------
+# Bearer token authentication (used by wr-server and wr-mcp)
+# ---------------------------------------------------------------------------
+# AUTH_TOKENS="11111111,22222222,33333333"
+# AUTH_URL="http://0.0.0.0:4000/key/info"
 
-EMBEDDING_MODEL="your_embedding_model"
-# Specify the default real embedding dims used. Some providers don't allow to change this.
-EMBEDDING_DIMENSIONS=768
-# Model used to generate the answers.
-LLM_MODEL="your_llm_model"
-# Model used to contextualize the questions for RAG (optional feature).
-# CONTEXTUALISATION_MODEL="your_llm_model"
-# Enable HyDE (Hypothetical Document Embeddings) for search (requires CONTEXTUALISATION_MODEL).
-# SEARCH_HYDE_ENABLED="true"
-# Number of hypothetical passages to generate per query (default 1). Multiple passages are averaged.
-# SEARCH_HYDE_PASSAGES=1
+# ---------------------------------------------------------------------------
+# LangSmith (required only when observability.langsmith.tracing or .prompts = true)
+# ---------------------------------------------------------------------------
+# LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>"
 
-# OpenAI wrapper base URL.
-WRAPPER_API_BASE="0.0.0.0:8080"
- # To limit the number of OpenAI history turns allowed in a chat (0 = no limit).
-WRAPPER_CHAT_MAX_TURNS=10
-# To limit the number of OpenAI history tokens allowed in a chat (0 = no limit).
-WRAPPER_CHAT_MAX_TOKENS=1536
-# Public name that the wrapper will use to identify itself as a model. Will default to COLLECTION_NAME is not set.
-WRAPPER_MODEL_NAME="Your Model Name"
-
-# Model Context Protocol (MCP) base URL.
-MCP_API_BASE="0.0.0.0:8081"
-
-# Validate requests auth against these bearer tokens (used by wr-server and wr-mcp).
-AUTH_TOKENS="11111111,22222222,33333333"
-# Delegate bearer token auth to this URL (200 => allow, used by wr-server and wr-mcp).
-AUTH_URL="http://0.0.0.0:4000/key/info"
-
-# To enable the Langsmith tracing or prompts management. Optional.
-# LANGSMITH_TRACING="true"
-# LANGSMITH_PROMPTS="true"
-# LANGSMITH_PROMPT_PREFIX="your_prefix/"
-# LANGSMITH_ENDPOINT="https://eu.api.smith.langchain.com"
-# LANGSMITH_API_KEY="<<<YOUR_LANGSMITH_API_KEY_HERE>>>
-
-# To enable the Langfuse tracing or prompts management. Optional.
-# LANGFUSE_TRACING="true"
-# LANGFUSE_PROMPTS="true"
-# LANGFUSE_PROMPT_PREFIX="your_prefix-"
-# LANGFUSE_HOST="https://cloud.langfuse.com"
+# ---------------------------------------------------------------------------
+# Langfuse (required only when observability.langfuse.tracing or .prompts = true)
+# ---------------------------------------------------------------------------
 # LANGFUSE_SECRET_KEY="<<<YOUR_LANGFUSE_SECRET_KEY_HERE>>>"
 # LANGFUSE_PUBLIC_KEY="<<<YOUR_LANGFUSE_PUBLIC_KEY_HERE>>>"
-
-# User agent for the crawler.
-USER_AGENT="Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"
-
-# Rate limiting setting for the crawler. Turning it off may overwhelm the server and may not be permitted by the mediawiki site.
-# ENABLE_RATE_LIMITING="false"

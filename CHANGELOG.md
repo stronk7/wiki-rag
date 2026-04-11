@@ -8,13 +8,17 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ## [Unreleased]
 
+### Added
+
+- Config: Migrate (BC for now) from env-only to YAML + env configuration
+
 ### Changed
 
 - GitHub: Update various GH actions to actual versions by @stronk7 ([5851e6a](https://github.com/moodlehq/wiki-rag/commit/5851e6ab0a507d682bb4d9124dd5dd0a08b6d3cd))
 
 ### Fixed
 
-- Search: Use only HyDE passages for dense search, not the original query
+- Search: Use only HyDE passages for dense search, not the original query by @stronk7 ([1527624](https://github.com/moodlehq/wiki-rag/commit/1527624c924f9fdbb423d188a68c3026a656ed86))
 
 ## [0.14.0] - 2026-04-06
 

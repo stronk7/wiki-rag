@@ -3,16 +3,11 @@
 
 """wiki_rag package."""
 
-import os
-
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 
-# Ugly constant, but nice to have for easy testing.
+# Convenient constant for the project root directory.
 ROOT_DIR = Path(__file__).resolve().parent.parent
-
-# To configure logging level globally. Note this cannot be set in config file / .env. Only via env variable.
-LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 
 __version__ = "unknown"
 try:

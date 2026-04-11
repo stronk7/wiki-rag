@@ -1,0 +1,215 @@
+# wiki-rag configuration template
+# Copy this file to config.yml and fill in the values for your deployment.
+#
+# Load order:
+#   1. .env file (if present) — loaded first via python-dotenv.
+#   2. config.yml (this file) — values here OVERRIDE values from .env.
+#   3. Built-in defaults — applied when neither source supplies a value.
+#
+# Secrets must NOT be placed here. Keep the following in .env or real
+# environment variables only:
+#   OPENAI_API_KEY, OPENAI_API_BASE
+#   LANGSMITH_API_KEY
+#   LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY
+#   AUTH_TOKENS, AUTH_URL
+#   MILVUS_TOKEN
+#   CHROMA_URL, CHROMA_PATH
+#
+# See dotenv.template for the list of expected secret environment variables.
+
+# ---------------------------------------------------------------------------
+# MediaWiki sources
+#
+# Use the 'sites' list to configure one or more MediaWiki instances.
+# Currently only the first entry is loaded/indexed; additional entries are
+# stored in the config for forward compatibility.
+#
+# Backward-compatible shorthand: if 'sites' is omitted, a single site is
+# built from the 'mediawiki' section below (plus MEDIAWIKI_* env vars).
+# ---------------------------------------------------------------------------
+sites:
+  - # Base URL of the MediaWiki instance to crawl.
+    url: "https://your.mediawiki/base/url"
+
+    # Namespace IDs to include. See:
+    # https://www.mediawiki.org/wiki/Manual:Namespace#Built-in_namespaces
+    namespaces: [0, 4, 12]
+
+    # Pages to exclude. Either the env-format string
+    #   "categories:Category A, Category B;wikitext:Some regex"
+    # or the native YAML dict form below.
+    excluded:
+      categories: []
+      wikitext: []
+
+    # Templates to preserve in wikitext (all others are stripped).
+    keep_templates: []
+
+  # - url: "https://second.mediawiki/base/url"
+  #   namespaces: [0]
+  #   excluded: {}
+  #   keep_templates: []
+
+# Single-site shorthand (backward compatible — used only when 'sites' is absent).
+# mediawiki:
+#   url: "https://your.mediawiki/base/url"
+#   namespaces: [0, 4, 12]
+#   excluded:
+#     categories: []
+#     wikitext: []
+#   keep_templates: []
+
+# ---------------------------------------------------------------------------
+# Loader
+# ---------------------------------------------------------------------------
+loader:
+  # Directory where dump files are stored.
+  # Empty string means ROOT_DIR/data (the default).
+  dump_path: ""
+
+  # Enable rate limiting when crawling. Disabling may overwhelm the server
+  # and may not be permitted by the MediaWiki site.
+  rate_limiting: true
+
+# ---------------------------------------------------------------------------
+# Collection
+# ---------------------------------------------------------------------------
+collection:
+  # Name of the vector-store collection (used as a prefix for dump files).
+  name: "your_collection_name"
+
+# ---------------------------------------------------------------------------
+# Index / vector store
+# ---------------------------------------------------------------------------
+index:
+  # Vector-store backend. Currently supported: "milvus".
+  vendor: "milvus"
+
+# ---------------------------------------------------------------------------
+# Embeddings
+# ---------------------------------------------------------------------------
+embedding:
+  # OpenAI-compatible embedding model name.
+  model: "your_embedding_model"
+
+  # Dimensionality of the embedding vectors. Must match the model output.
+  dimensions: 768
+
+# ---------------------------------------------------------------------------
+# LLM
+# ---------------------------------------------------------------------------
+llm:
+  # Model used to generate answers.
+  model: "your_llm_model"
+
+  # Model used to contextualise questions for RAG (optional).
+  # Leave empty to disable query rewriting and HyDE.
+  contextualisation_model: ""
+
+# ---------------------------------------------------------------------------
+# Search / RAG generation
+# ---------------------------------------------------------------------------
+search:
+  # LangSmith / Langfuse prompt name (the RAG main prompt).
+  prompt_name: "wiki-rag"
+
+  # Product name used inside the prompt.
+  product: "Moodle"
+
+  # Short description of the knowledge-base task.
+  task_def: "Moodle user documentation"
+
+  # Human-readable name of the knowledge base.
+  kb_name: "Moodle Docs"
+
+  # Minimum cosine-similarity score for a retrieved document to be included.
+  distance_cutoff: 0.6
+
+  # Maximum tokens to generate in the final answer.
+  max_completion_tokens: 1536
+
+  # LLM sampling temperature (0 = deterministic, 2 = very creative).
+  temperature: 0.05
+
+  # Nucleus sampling probability threshold.
+  top_p: 0.85
+
+  hyde:
+    # Enable HyDE (Hypothetical Document Embeddings) for dense retrieval.
+    # Requires contextualisation_model to be set.
+    enabled: false
+
+    # Number of hypothetical passages to generate per query.
+    passages: 1
+
+# ---------------------------------------------------------------------------
+# OpenAI-compatible HTTP server (wr-server)
+# ---------------------------------------------------------------------------
+wrapper:
+  # Bind address for the HTTP server (host:port).
+  api_base: "0.0.0.0:8080"
+
+  # Maximum number of conversation turns to keep in history (0 = unlimited).
+  chat_max_turns: 10
+
+  # Maximum token budget for the conversation history (0 = unlimited).
+  chat_max_tokens: 1536
+
+  # Public model name that the wrapper advertises.
+  # Leave empty to use collection.name.
+  model_name: ""
+
+# ---------------------------------------------------------------------------
+# MCP server (wr-mcp)
+# ---------------------------------------------------------------------------
+mcp:
+  # Bind address for the MCP server (host:port).
+  api_base: "0.0.0.0:8081"
+
+# ---------------------------------------------------------------------------
+# Milvus vector store (non-secret connection settings)
+# ---------------------------------------------------------------------------
+milvus:
+  # Milvus server URL. Do NOT embed credentials here.
+  # Put credentials in the MILVUS_TOKEN environment variable instead.
+  # For backward compatibility, a URL with embedded credentials
+  # (https://user:password@host:port) still works via MILVUS_URL env var.  # pragma: allowlist secret
+  url: "http://0.0.0.0:19530"
+
+# ---------------------------------------------------------------------------
+# Observability
+# ---------------------------------------------------------------------------
+observability:
+  langsmith:
+    # Enable LangSmith tracing.
+    tracing: false
+
+    # Enable loading prompts from LangSmith.
+    prompts: false
+
+    # LangSmith API endpoint URL.
+    endpoint: "https://eu.api.smith.langchain.com"
+
+    # Prefix prepended to all prompt names when fetching from LangSmith.
+    prompt_prefix: ""
+
+  langfuse:
+    # Enable Langfuse tracing.
+    tracing: false
+
+    # Enable loading prompts from Langfuse.
+    prompts: false
+
+    # Langfuse host URL.
+    host: "https://cloud.langfuse.com"
+
+    # Prefix prepended to all prompt names when fetching from Langfuse.
+    prompt_prefix: ""
+
+# ---------------------------------------------------------------------------
+# Miscellaneous
+# ---------------------------------------------------------------------------
+
+# HTTP User-Agent for the MediaWiki crawler.
+# The {version} placeholder is replaced with the installed package version.
+user_agent: "Moodle Research Wiki-RAG Crawler/{version} (https://github.com/moodlehq/wiki-rag)"

@@ -9,7 +9,6 @@ use the complete SDKs is a good recommendation.
 """
 
 import logging
-import os
 import sys
 
 from typing import Any
@@ -25,6 +24,7 @@ from pymilvus import (
     WeightedRanker,
 )
 
+from wiki_rag.config import Config
 from wiki_rag.vector import BaseVector
 
 logger = logging.getLogger(__name__)
@@ -33,17 +33,24 @@ logger = logging.getLogger(__name__)
 class MilvusVector(BaseVector):
     """Milvus backend vector.
 
-    Requires MILVUS_URL to be defined in environment.
-    Milvus connection string, e.g. 'http://localhost:19530'
-    or 'https://user:password@localhost:19530'.  # pragma: allowlist secret
+    Connection settings are provided via the :class:`~wiki_rag.config.Config`
+    singleton. The URL should point to the Milvus server, e.g.
+    ``'http://localhost:19530'``. Credentials can be supplied separately via
+    ``MILVUS_TOKEN`` (env only) or embedded in the URL for backward
+    compatibility: ``'https://user:password@localhost:19530'``.  # pragma: allowlist secret
     """
 
-    def __init__(self) -> None:
-        """Initialize the Milvus backend."""
-        # TODO: We'll need to change this to use config when we have it (vs env).
-        self.uri: str = os.getenv("MILVUS_URL", "")
+    def __init__(self, cfg: Config) -> None:
+        """Initialise the Milvus backend.
+
+        Args:
+            cfg: Resolved application configuration.
+
+        """
+        self.uri: str = cfg.milvus.url
+        self.token: str = cfg.milvus_token or ""
         if not self.uri:
-            logger.error("Milvus URL not found in environment. Exiting.")
+            logger.error("Milvus URL not found in configuration. Exiting.")
             sys.exit(1)
 
     # BaseVector interface.
@@ -54,7 +61,7 @@ class MilvusVector(BaseVector):
         A pre-existing collection with the same name is dropped first.
         Both HNSW (dense) and BM25 (sparse) indexes are created for hybrid search.
         """
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         if client.has_collection(collection_name):
             client.drop_collection(collection_name)
 
@@ -65,26 +72,26 @@ class MilvusVector(BaseVector):
 
     def collection_exists(self, name: str) -> bool:
         """Return True if the Milvus collection exists."""
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         exists = client.has_collection(name)
         client.close()
         return True if exists else False
 
     def drop_collection(self, name: str) -> None:
         """Delete the Milvus collection."""
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         client.drop_collection(name)
         client.close()
 
     def rename_collection(self, old: str, new: str) -> None:
         """Rename a Milvus collection atomically."""
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         client.rename_collection(old, new)
         client.close()
 
     def compact_collection(self, name: str) -> None:
         """Trigger Milvus compaction to reclaim disk space and optimise performance."""
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         client.compact(name)
         client.close()
 
@@ -99,7 +106,7 @@ class MilvusVector(BaseVector):
         """
         if not page_ids:
             return
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         try:
             client.delete(collection_name, filter=f"page_id in {page_ids}")
         finally:
@@ -114,7 +121,7 @@ class MilvusVector(BaseVector):
                 in the schema created by `create_collection`.
 
         """
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
         try:
             client.insert(collection_name, records)
         except Exception:
@@ -139,7 +146,7 @@ class MilvusVector(BaseVector):
         """
         output_columns = ["id", "title", "text"]
 
-        milvus = MilvusClient(self.uri)
+        milvus = MilvusClient(self.uri, token=self.token)
 
         # Let's find in the collection, the missing elements and get their titles and texts.
         missing_docs_db = milvus.query(
@@ -180,7 +187,7 @@ class MilvusVector(BaseVector):
             queries=queries,
         )
 
-        client = MilvusClient(self.uri)
+        client = MilvusClient(self.uri, token=self.token)
 
         # TODO: Make a bunch of the defaults used here configurable.
         dense_search_limit = 20
