@@ -166,6 +166,8 @@ class MilvusVector(BaseVector):
             embedding_dimensions: int,
             queries: list[str],
             sparse_query: str | None = None,
+            embedding_api_base: str = "",
+            embedding_api_key: str = "",
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
@@ -185,6 +187,8 @@ class MilvusVector(BaseVector):
             embedding_model=embedding_model,
             embedding_dimensions=embedding_dimensions,
             queries=queries,
+            api_base=embedding_api_base,
+            api_key=embedding_api_key,
         )
 
         client = MilvusClient(self.uri, token=self.token)

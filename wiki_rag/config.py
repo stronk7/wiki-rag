@@ -61,7 +61,9 @@ _DEFAULT_USER_AGENT: str = (
 # Environment variable names that must NEVER be read from the YAML file.
 _SECRETS: frozenset[str] = frozenset({
     "OPENAI_API_KEY",
-    "OPENAI_API_BASE",
+    "EMBEDDING_API_KEY",
+    "CONTEXTUALISATION_API_KEY",
+    "HYDE_API_KEY",
     "LANGSMITH_API_KEY",
     "LANGFUSE_SECRET_KEY",
     "LANGFUSE_PUBLIC_KEY",
@@ -177,8 +179,25 @@ class Config:
     index_vendor: str
     embedding_model: str
     embedding_dimensions: int
-    llm_model: str
+    openai_model: str
     contextualisation_model: str | None
+    hyde_model: str | None
+    # ------------------------------------------------------------------
+    # OpenAI-compatible provider API base URLs and per-model API keys.
+    # openai_api_base (env: OPENAI_API_BASE / YAML: openai.api_base) and
+    # openai_model (env: LLM_MODEL / YAML: openai.model) are the mandatory
+    # general fallbacks; per-model overrides are YAML-only and optional
+    # (None means "use the general value").
+    # Per-model API keys are env secrets; OPENAI_API_KEY is the env-based
+    # general fallback for all clients.
+    # ------------------------------------------------------------------
+    openai_api_base: str
+    embedding_api_base: str | None
+    contextualisation_api_base: str | None
+    hyde_api_base: str | None
+    embedding_api_key: str | None
+    contextualisation_api_key: str | None
+    hyde_api_key: str | None
     search: SearchConfig
     wrapper: WrapperConfig
     mcp: McpConfig
@@ -191,7 +210,6 @@ class Config:
     # Secret fields: always from environment only, never from YAML.
     # ------------------------------------------------------------------
     openai_api_key: str | None
-    openai_api_base: str | None
     langsmith_api_key: str | None
     langfuse_secret_key: str | None
     langfuse_public_key: str | None
@@ -430,6 +448,14 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
             loaded = yaml.safe_load(f)
             if isinstance(loaded, dict):
                 yaml_data = loaded
+    elif dotenv_file.exists():
+        logger.warning("=" * 72)
+        logger.warning(
+            "DEPRECATION WARNING: Non-secret configuration via .env is deprecated "
+            "and will be removed in a future release. "
+            "Please migrate your settings to config.yml."
+        )
+        logger.warning("=" * 72)
 
     # Convenience: partial application binding yaml_data.
     def _v(env_key: str, yaml_path: str, default: Any = None) -> Any:
@@ -458,13 +484,27 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     keep_templates_raw = _v("MEDIAWIKI_KEEP_TEMPLATES", "mediawiki.keep_templates")
     rate_limiting_raw = _v("ENABLE_RATE_LIMITING", "loader.rate_limiting", "true")
 
+    # --- OpenAI-compatible provider API base URL and model (env var + YAML for defaults) ---
+    # Per-model overrides are YAML-only; only the general fields support env vars.
+    openai_api_base = _v("OPENAI_API_BASE", "openai.api_base", "") or ""
+    embedding_api_base = _resolve_yaml(yaml_data, "embedding.api_base") or None
+    contextualisation_api_base = _resolve_yaml(yaml_data, "search.contextualisation.api_base") or None
+    hyde_api_base = _resolve_yaml(yaml_data, "search.hyde.api_base") or None
+
+    # --- Per-model API keys (env secrets; OPENAI_API_KEY is the general fallback) ---
+    embedding_api_key = os.environ.get("EMBEDDING_API_KEY") or None
+    contextualisation_api_key = os.environ.get("CONTEXTUALISATION_API_KEY") or None
+    hyde_api_key = os.environ.get("HYDE_API_KEY") or None
+
     # --- Embedding (index, search, server, mcp) ---
     embedding_model = _v("EMBEDDING_MODEL", "embedding.model")
     embedding_dimensions_raw = _v("EMBEDDING_DIMENSIONS", "embedding.dimensions")
 
-    # --- LLM (search, server, mcp) ---
-    llm_model = _v("LLM_MODEL", "llm.model")
-    contextualisation_model = _v("CONTEXTUALISATION_MODEL", "llm.contextualisation_model") or None
+    # --- Models (search, server, mcp) ---
+    # openai_model is the general model; env var LLM_MODEL kept for backward compatibility.
+    openai_model = _v("LLM_MODEL", "openai.model")
+    contextualisation_model = _v("CONTEXTUALISATION_MODEL", "search.contextualisation.model") or None
+    hyde_model = _resolve_yaml(yaml_data, "search.hyde.model") or None
 
     # --- Search (search, server, mcp) ---
     prompt_name = _v("SEARCH_PROMPT_NAME", "search.prompt_name", "wiki-rag")
@@ -472,9 +512,9 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     task_def = _v("SEARCH_TASK_DEF", "search.task_def", "Moodle user documentation")
     kb_name = _v("SEARCH_KB_NAME", "search.kb_name", "Moodle Docs")
     distance_cutoff_raw = _v("SEARCH_DISTANCE_CUTOFF", "search.distance_cutoff", "0.6")
-    max_completion_tokens_raw = _v("SEARCH_MAX_COMPLETION_TOKENS", "search.max_completion_tokens", "1536")
-    temperature_raw = _v("SEARCH_TEMPERATURE", "search.temperature", "0.05")
-    top_p_raw = _v("SEARCH_TOP_P", "search.top_p", "0.85")
+    max_completion_tokens_raw = _v("SEARCH_MAX_COMPLETION_TOKENS", "openai.max_completion_tokens", "1536")
+    temperature_raw = _v("SEARCH_TEMPERATURE", "openai.temperature", "0.05")
+    top_p_raw = _v("SEARCH_TOP_P", "openai.top_p", "0.85")
     hyde_enabled_raw = _v("SEARCH_HYDE_ENABLED", "search.hyde.enabled", "false")
     hyde_passages_raw = _v("SEARCH_HYDE_PASSAGES", "search.hyde.passages", "1")
 
@@ -511,7 +551,6 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
 
     # --- Secrets (env only) ---
     openai_api_key = os.environ.get("OPENAI_API_KEY") or None
-    openai_api_base = os.environ.get("OPENAI_API_BASE") or None
     langsmith_api_key = os.environ.get("LANGSMITH_API_KEY") or None
     langfuse_secret_key = os.environ.get("LANGFUSE_SECRET_KEY") or None
     langfuse_public_key = os.environ.get("LANGFUSE_PUBLIC_KEY") or None
@@ -633,11 +672,12 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         _require(collection_name, "Collection name", "COLLECTION_NAME")
 
     if command in embedding_commands:
+        _require(openai_api_base, "OpenAI API base URL", "OPENAI_API_BASE")
         _require(embedding_model, "Embedding model", "EMBEDDING_MODEL")
         _require(embedding_dimensions_raw, "Embedding dimensions", "EMBEDDING_DIMENSIONS")
 
     if command in llm_commands:
-        _require(llm_model, "LLM model", "LLM_MODEL")
+        _require(openai_model, "OpenAI model (LLM_MODEL / openai.model)", "LLM_MODEL")
 
     if command == "server":
         _require(wrapper_api_base, "Wrapper API base", "WRAPPER_API_BASE")
@@ -660,11 +700,8 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     # ------------------------------------------------------------------
     # 8. Propagate settings to os.environ for third-party SDK consumption.
     # ------------------------------------------------------------------
-    # LangChain reads OPENAI_API_BASE and OPENAI_API_KEY from os.environ.
-    if openai_api_base:
-        os.environ["OPENAI_API_BASE"] = openai_api_base
-    if openai_api_key:
-        os.environ["OPENAI_API_KEY"] = openai_api_key
+    # OPENAI_API_KEY and base_url are now passed explicitly to each model
+    # client via api_key= and base_url= respectively.  No implicit write needed.
 
     # LangSmith SDK reads LANGSMITH_PROJECT and LANGSMITH_PROMPT_PREFIX.
     if langsmith_tracing or langsmith_prompts:
@@ -684,8 +721,16 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         index_vendor=str(index_vendor or "milvus"),
         embedding_model=str(embedding_model or ""),
         embedding_dimensions=embedding_dimensions,
-        llm_model=str(llm_model or ""),
+        openai_model=str(openai_model or ""),
         contextualisation_model=contextualisation_model,
+        hyde_model=hyde_model,
+        openai_api_base=openai_api_base,
+        embedding_api_base=embedding_api_base,
+        contextualisation_api_base=contextualisation_api_base,
+        hyde_api_base=hyde_api_base,
+        embedding_api_key=embedding_api_key,
+        contextualisation_api_key=contextualisation_api_key,
+        hyde_api_key=hyde_api_key,
         search=SearchConfig(
             prompt_name=str(prompt_name),
             product=str(product),
@@ -725,7 +770,6 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         user_agent=user_agent,
         log_level=log_level,
         openai_api_key=openai_api_key,
-        openai_api_base=openai_api_base,
         langsmith_api_key=langsmith_api_key,
         langfuse_secret_key=langfuse_secret_key,
         langfuse_public_key=langfuse_public_key,

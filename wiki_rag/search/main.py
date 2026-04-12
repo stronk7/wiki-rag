@@ -16,7 +16,7 @@ from langfuse.langchain import CallbackHandler
 import wiki_rag.vector as vector
 
 from wiki_rag import __version__
-from wiki_rag.config import load_config
+from wiki_rag.config import LOG_LEVEL, load_config
 from wiki_rag.search.util import build_context_schema, build_graph
 from wiki_rag.util import setup_logging
 from wiki_rag.vector import load_vector_store
@@ -24,13 +24,12 @@ from wiki_rag.vector import load_vector_store
 
 async def run():
     """Perform a search with all the configuration in place."""
-    cfg = load_config(command="search")
-    setup_logging(level=cfg.log_level)
+    setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-search starting up...")
-
-    # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
+
+    cfg = load_config(command="search")
 
     # Let's accept arg[1] as the question to be asked.
     parser = argparse.ArgumentParser()

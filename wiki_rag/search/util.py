@@ -26,6 +26,7 @@ from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.runtime import Runtime
 from langsmith.client import Client
+from pydantic import SecretStr
 
 import wiki_rag.config as _config_module
 import wiki_rag.vector as vector
@@ -50,7 +51,8 @@ class ContextSchema(TypedDict):
     embedding_model: str
     embedding_dimension: int
     llm_model: str
-    contextualisation_model: str | None
+    contextualisation_model: str
+    hyde_model: str
     hyde_enabled: bool
     hyde_passages: int
     search_distance_cutoff: float
@@ -66,6 +68,14 @@ class ContextSchema(TypedDict):
     langfuse_prompts: bool
     langfuse_prompt_prefix: str
     langfuse_callback: CallbackHandler | None
+    embedding_api_base: str
+    llm_api_base: str
+    contextualisation_api_base: str
+    hyde_api_base: str
+    embedding_api_key: str
+    llm_api_key: str
+    contextualisation_api_key: str
+    hyde_api_key: str
 
 
 def build_context_schema(
@@ -85,6 +95,21 @@ def build_context_schema(
 
     """
     wrapper_model_name = cfg.wrapper.model_name or cfg.collection_name
+
+    # Resolve model fallback chain: contextualisation → openai; hyde → contextualisation → openai.
+    resolved_ctx_model = cfg.contextualisation_model or cfg.openai_model or ""
+    resolved_hyde_model = cfg.hyde_model or resolved_ctx_model
+
+    # Resolve per-model API base URLs with fallback chain (no llm-specific layer).
+    resolved_ctx_base = cfg.contextualisation_api_base or cfg.openai_api_base
+    resolved_hyde_base = cfg.hyde_api_base or resolved_ctx_base
+    resolved_embedding_base = cfg.embedding_api_base or cfg.openai_api_base
+
+    # Resolve per-model API keys with fallback chain (same structure as base URLs).
+    resolved_ctx_key = cfg.contextualisation_api_key or cfg.openai_api_key or ""
+    resolved_hyde_key = cfg.hyde_api_key or resolved_ctx_key
+    resolved_embedding_key = cfg.embedding_api_key or cfg.openai_api_key or ""
+
     return ContextSchema(
         prompt_name=cfg.search.prompt_name,
         product=cfg.search.product,
@@ -94,8 +119,9 @@ def build_context_schema(
         collection_name=cfg.collection_name,
         embedding_model=cfg.embedding_model,
         embedding_dimension=cfg.embedding_dimensions,
-        llm_model=cfg.llm_model,
-        contextualisation_model=cfg.contextualisation_model,
+        llm_model=cfg.openai_model or "",
+        contextualisation_model=resolved_ctx_model,
+        hyde_model=resolved_hyde_model,
         hyde_enabled=cfg.search.hyde_enabled,
         hyde_passages=cfg.search.hyde_passages,
         search_distance_cutoff=cfg.search.distance_cutoff,
@@ -111,6 +137,14 @@ def build_context_schema(
         langfuse_prompts=cfg.langfuse.prompts,
         langfuse_prompt_prefix=cfg.langfuse.prompt_prefix,
         langfuse_callback=langfuse_callback,
+        embedding_api_base=resolved_embedding_base,
+        llm_api_base=cfg.openai_api_base,
+        contextualisation_api_base=resolved_ctx_base,
+        hyde_api_base=resolved_hyde_base,
+        embedding_api_key=resolved_embedding_key,
+        llm_api_key=cfg.openai_api_key or "",
+        contextualisation_api_key=resolved_ctx_key,
+        hyde_api_key=resolved_hyde_key,
     )
 
 
@@ -167,9 +201,9 @@ def route_after_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> Lit
     if "answer" in state:
         return "chitchat"
 
-    # Route through HyDE when enabled and a contextualisation model is available.
-    # HyDE uses the same model as query_rewrite, so it only runs when that model is set.
-    if runtime.context["hyde_enabled"] and runtime.context["contextualisation_model"]:
+    # Route through HyDE when enabled and a model is available (hyde_model falls
+    # back to contextualisation_model, so either one being set is sufficient).
+    if runtime.context["hyde_enabled"] and runtime.context["hyde_model"]:
         return "hyde_rewrite"
 
     return "retrieve"  # Continue directly to retrieval.
@@ -376,6 +410,8 @@ async def query_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dic
             history=state["history"],
             product=runtime.context["product"],
             model=runtime.context["contextualisation_model"],
+            api_base=runtime.context["contextualisation_api_base"],
+            api_key=runtime.context["contextualisation_api_key"],
         )
 
         if contextualised_answer["type"] == "chitchat":
@@ -408,8 +444,8 @@ async def hyde_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dict
     hyde_prompt = load_prompts_for_rag(f"{runtime.context['prompt_name']}-hyde")
 
     n = max(1, runtime.context["hyde_passages"])
-    model = runtime.context["contextualisation_model"]
-    assert model is not None  # Guaranteed by route_after_rewrite; satisfies type checker.
+    model = runtime.context["hyde_model"]
+    assert model  # Guaranteed by route_after_rewrite; satisfies type checker.
 
     async def generate_passage() -> str:
         """Generate a single hypothetical passage."""
@@ -420,8 +456,11 @@ async def hyde_rewrite(state: RagState, runtime: Runtime[ContextSchema]) -> dict
             "kb_name": runtime.context["kb_name"],
             "history": [],
         })
+        hyde_key = runtime.context["hyde_api_key"]
         llm = ChatOpenAI(
             model=model,
+            base_url=runtime.context["hyde_api_base"],
+            api_key=SecretStr(hyde_key) if hyde_key else None,
             max_completion_tokens=256,  # TODO: Make these 3 configurable.
             top_p=0.85,
             temperature=1.0,  # High, more varietè.
@@ -442,6 +481,8 @@ async def contextualise_question(
         history: list[BaseMessage],
         product: str,
         model: str,
+        api_base: str,
+        api_key: str,
 ) -> dict:
     """Contextualise the question with the history and the model.
 
@@ -461,6 +502,8 @@ async def contextualise_question(
 
     llm = ChatOpenAI(
         model=model,
+        base_url=api_base,
+        api_key=SecretStr(api_key) if api_key else None,
         max_completion_tokens=256,  # TODO: Make these 3 configurable.
         top_p=0.85,
         temperature=0.1,
@@ -494,6 +537,8 @@ async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
         embedding_dimensions=runtime.context["embedding_dimension"],
         queries=queries,
         sparse_query=sparse_query,
+        embedding_api_base=runtime.context["embedding_api_base"],
+        embedding_api_key=runtime.context["embedding_api_key"],
     )
 
     # TODO: Return only the docs which distance is below the cutoff.
@@ -664,8 +709,11 @@ async def generate(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     are used to generate the final answer.
     """
     # Let's make the generation LLM call normally.
+    llm_key = runtime.context["llm_api_key"]
     llm = ChatOpenAI(
         model=runtime.context["llm_model"],
+        base_url=runtime.context["llm_api_base"],
+        api_key=SecretStr(llm_key) if llm_key else None,
         max_completion_tokens=runtime.context["max_completion_tokens"],
         top_p=runtime.context["top_p"],
         temperature=runtime.context["temperature"],

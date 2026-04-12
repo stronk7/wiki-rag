@@ -36,6 +36,7 @@ _MINIMAL_ENV_ALL = {
 
 _MINIMAL_ENV_INDEX = {
     **_MINIMAL_ENV_ALL,
+    "OPENAI_API_BASE": "https://api.example.com/v1",
     "EMBEDDING_MODEL": "text-embed",
     "EMBEDDING_DIMENSIONS": "768",
 }
@@ -264,6 +265,18 @@ class TestLoadConfigEnvOnly(unittest.TestCase):
         self.assertAlmostEqual(0.05, cfg.search.temperature)
         self.assertAlmostEqual(0.85, cfg.search.top_p)
 
+    def test_openai_generation_params_from_yaml(self):
+        yaml_content = "openai:\n  max_completion_tokens: 512\n  temperature: 0.1\n  top_p: 0.9\n"
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            self.assertEqual(512, cfg.search.max_completion_tokens)
+            self.assertAlmostEqual(0.1, cfg.search.temperature)
+            self.assertAlmostEqual(0.9, cfg.search.top_p)
+        finally:
+            config_path.unlink()
+
     def test_wrapper_chat_defaults(self):
         cfg = self._load("server")
         self.assertEqual(0, cfg.wrapper.chat_max_turns)
@@ -333,6 +346,12 @@ class TestLoadConfigMissingRequired(unittest.TestCase):
         with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_ALL, clear=True):
             cfg = load_config(command="load", config_path=Path("/nonexistent/config.yml"))
         self.assertIsInstance(cfg, Config)
+
+    def test_missing_openai_api_base_for_index_exits(self):
+        """wr-index requires OPENAI_API_BASE (or openai.api_base in YAML)."""
+        env = {k: v for k, v in _MINIMAL_ENV_INDEX.items() if k != "OPENAI_API_BASE"}
+        with self.assertRaises(SystemExit):
+            self._load_bad("index", env)
 
 
 class TestLoadConfigYamlOverride(unittest.TestCase):
@@ -473,6 +492,8 @@ class TestLoadConfigSecretsEnvOnly(unittest.TestCase):
         self.assertIsNone(cfg.langsmith_api_key)
         self.assertIsNone(cfg.langfuse_secret_key)
         self.assertIsNone(cfg.milvus_token)
+        # openai_api_base is now non-secret; absent for "load" command (not required).
+        self.assertEqual("", cfg.openai_api_base)
 
     def test_milvus_token_from_env(self):
         env = {**_MINIMAL_ENV_ALL, "MILVUS_TOKEN": "mytoken"}  # pragma: allowlist secret
@@ -515,22 +536,22 @@ class TestLoadConfigObservabilityValidation(unittest.TestCase):
 
 
 class TestLoadConfigOsEnvironPropagation(unittest.TestCase):
-    """Verify that secrets are written to os.environ for LangChain SDK consumption."""
+    """Verify that os.environ is updated for third-party SDK consumption."""
 
     def setUp(self):
         config_module.cfg = None
 
     def tearDown(self):
         # Clean up any keys set by load_config.
-        for key in ("OPENAI_API_KEY", "OPENAI_API_BASE", "LANGSMITH_PROJECT", "LANGSMITH_PROMPT_PREFIX"):
+        for key in ("LANGSMITH_PROJECT", "LANGSMITH_PROMPT_PREFIX"):
             os.environ.pop(key, None)
 
-    def test_openai_api_key_propagated(self):
+    def test_openai_api_key_stored_in_config(self):
+        """OPENAI_API_KEY is stored in cfg but no longer written to os.environ."""
         env = {**_MINIMAL_ENV_ALL, "OPENAI_API_KEY": "test-key"}  # pragma: allowlist secret
         with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, env, clear=True):
-            load_config(command="load", config_path=Path("/nonexistent/config.yml"))
-            # Check inside the with block before patch.dict restores os.environ.
-            self.assertEqual("test-key", os.environ.get("OPENAI_API_KEY"))
+            cfg = load_config(command="load", config_path=Path("/nonexistent/config.yml"))
+        self.assertEqual("test-key", cfg.openai_api_key)
 
     def test_langsmith_project_set_when_tracing_enabled(self):
         env = {
@@ -543,6 +564,148 @@ class TestLoadConfigOsEnvironPropagation(unittest.TestCase):
             cfg = load_config(command="search", config_path=Path("/nonexistent/config.yml"))
             # Check inside the with block before patch.dict restores os.environ.
             self.assertEqual(cfg.collection_name, os.environ.get("LANGSMITH_PROJECT"))
+
+
+class TestLoadConfigApiBaseFields(unittest.TestCase):
+    """Verify per-model api_base fields and their fallback resolution."""
+
+    def setUp(self):
+        config_module.cfg = None
+
+    def _load(self, command: str, extra_env: dict | None = None) -> Config:
+        """Load config with a clean env, without loading the real .env file."""
+        base = _MINIMAL_ENV_SERVER if command == "server" else (
+            _MINIMAL_ENV_MCP if command == "mcp" else (
+                _MINIMAL_ENV_SEARCH if command in {"search"} else (
+                    _MINIMAL_ENV_INDEX if command == "index" else _MINIMAL_ENV_ALL
+                )
+            )
+        )
+        env = {**base, **(extra_env or {})}
+        with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, env, clear=True):
+            return load_config(command=command, config_path=Path("/nonexistent/config.yml"))
+
+    def test_openai_api_base_set_from_env(self):
+        cfg = self._load("index")
+        self.assertEqual("https://api.example.com/v1", cfg.openai_api_base)
+
+    def test_per_model_api_base_defaults_to_none(self):
+        cfg = self._load("index")
+        self.assertIsNone(cfg.embedding_api_base)
+        self.assertIsNone(cfg.contextualisation_api_base)
+        self.assertIsNone(cfg.hyde_api_base)
+
+    def test_embedding_api_base_from_yaml(self):
+        yaml_content = 'embedding:\n  api_base: "https://embed.example.com/v1"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_INDEX, clear=True):
+                cfg = load_config(command="index", config_path=config_path)
+            self.assertEqual("https://embed.example.com/v1", cfg.embedding_api_base)
+        finally:
+            config_path.unlink()
+
+    def test_contextualisation_api_base_from_yaml(self):
+        yaml_content = 'search:\n  contextualisation:\n    api_base: "https://ctx.example.com/v1"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            self.assertEqual("https://ctx.example.com/v1", cfg.contextualisation_api_base)
+        finally:
+            config_path.unlink()
+
+    def test_hyde_api_base_from_yaml(self):
+        yaml_content = 'search:\n  hyde:\n    api_base: "https://hyde.example.com/v1"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            self.assertEqual("https://hyde.example.com/v1", cfg.hyde_api_base)
+        finally:
+            config_path.unlink()
+
+    def test_openai_api_base_from_yaml(self):
+        yaml_content = 'openai:\n  api_base: "https://yaml-api.example.com/v1"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_INDEX, clear=True):
+                cfg = load_config(command="index", config_path=config_path)
+            self.assertEqual("https://yaml-api.example.com/v1", cfg.openai_api_base)
+        finally:
+            config_path.unlink()
+
+    def test_openai_api_base_not_required_for_load(self):
+        """wr-load does not use embeddings, so OPENAI_API_BASE is not required."""
+        with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_ALL, clear=True):
+            cfg = load_config(command="load", config_path=Path("/nonexistent/config.yml"))
+        self.assertEqual("", cfg.openai_api_base)
+
+    def test_hyde_model_defaults_to_none(self):
+        cfg = self._load("search")
+        self.assertIsNone(cfg.hyde_model)
+
+    def test_hyde_model_from_yaml(self):
+        yaml_content = 'search:\n  hyde:\n    model: "hyde-specific-model"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            self.assertEqual("hyde-specific-model", cfg.hyde_model)
+        finally:
+            config_path.unlink()
+
+    def test_per_model_api_key_defaults_to_none(self):
+        cfg = self._load("index")
+        self.assertIsNone(cfg.embedding_api_key)
+        self.assertIsNone(cfg.contextualisation_api_key)
+        self.assertIsNone(cfg.hyde_api_key)
+
+    def test_embedding_api_key_from_env(self):
+        cfg = self._load("index", extra_env={"EMBEDDING_API_KEY": "embed-key"})  # pragma: allowlist secret
+        self.assertEqual("embed-key", cfg.embedding_api_key)
+
+    def test_contextualisation_api_key_from_env(self):
+        cfg = self._load("search", extra_env={
+            "CONTEXTUALISATION_API_KEY": "ctx-key"  # pragma: allowlist secret
+        })
+        self.assertEqual("ctx-key", cfg.contextualisation_api_key)
+
+    def test_hyde_api_key_from_env(self):
+        cfg = self._load("search", extra_env={"HYDE_API_KEY": "hyde-key"})  # pragma: allowlist secret
+        self.assertEqual("hyde-key", cfg.hyde_api_key)
+
+    def test_per_model_keys_not_readable_from_yaml(self):
+        """Per-model API keys must never be read from YAML (all are in _SECRETS)."""
+        from wiki_rag.config import _SECRETS
+        for key in ("EMBEDDING_API_KEY", "CONTEXTUALISATION_API_KEY", "HYDE_API_KEY"):
+            self.assertIn(key, _SECRETS)
+
+    def test_openai_model_from_env_via_llm_model(self):
+        """LLM_MODEL env var still populates cfg.openai_model (backward compatibility)."""
+        cfg = self._load("search")
+        self.assertEqual("gpt-4o", cfg.openai_model)
+
+    def test_openai_model_from_yaml(self):
+        yaml_content = 'openai:\n  model: "gpt-4-turbo"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            # YAML overrides env var.
+            self.assertEqual("gpt-4-turbo", cfg.openai_model)
+        finally:
+            config_path.unlink()
+
+    def test_contextualisation_model_from_new_yaml_path(self):
+        yaml_content = 'search:\n  contextualisation:\n    model: "ctx-model"\n'
+        config_path = _write_yaml(yaml_content)
+        try:
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, _MINIMAL_ENV_SEARCH, clear=True):
+                cfg = load_config(command="search", config_path=config_path)
+            self.assertEqual("ctx-model", cfg.contextualisation_model)
+        finally:
+            config_path.unlink()
 
 
 if __name__ == "__main__":

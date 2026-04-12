@@ -10,7 +10,7 @@ import sys
 import wiki_rag.vector as vector
 
 from wiki_rag import __version__
-from wiki_rag.config import load_config
+from wiki_rag.config import LOG_LEVEL, load_config
 from wiki_rag.index.util import (
     create_temp_collection_schema,
     index_pages,
@@ -32,13 +32,12 @@ def main():
     )
     args = parser.parse_args()
 
-    cfg = load_config(command="index")
-    setup_logging(level=cfg.log_level)
+    setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-index starting up...")
-
-    # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
+
+    cfg = load_config(command="index")
 
     with instance_lock(cfg.collection_name, cfg.loader.dump_path):
         vector.store = load_vector_store(cfg.index_vendor)
@@ -83,6 +82,9 @@ def main():
         dump_type = information["sites"][0].get("dump_type", "full")
         use_incremental = not args.full and dump_type == "incremental"
 
+        embedding_api_base = cfg.embedding_api_base or cfg.openai_api_base
+        embedding_api_key = cfg.embedding_api_key or cfg.openai_api_key or ""
+
         if use_incremental:
             logger.info("Incremental indexing mode: updating live collection in-place.")
             if not vector.store.collection_exists(cfg.collection_name):
@@ -92,7 +94,8 @@ def main():
                 )
                 sys.exit(1)
             summary = index_pages_incremental(
-                pages, cfg.collection_name, cfg.embedding_model, cfg.embedding_dimensions
+                pages, cfg.collection_name, cfg.embedding_model, cfg.embedding_dimensions,
+                embedding_api_base, embedding_api_key,
             )
             logger.info(
                 f"Incremental index complete — "
@@ -112,7 +115,8 @@ def main():
 
             logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
             [total_pages, total_sections] = index_pages(
-                pages, temp_collection_name, cfg.embedding_model, cfg.embedding_dimensions
+                pages, temp_collection_name, cfg.embedding_model, cfg.embedding_dimensions,
+                embedding_api_base, embedding_api_key,
             )
             logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
 

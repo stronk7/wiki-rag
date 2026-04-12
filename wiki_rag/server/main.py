@@ -12,7 +12,7 @@ from langfuse.langchain import CallbackHandler
 import wiki_rag.vector as vector
 
 from wiki_rag import __version__, server
-from wiki_rag.config import load_config
+from wiki_rag.config import LOG_LEVEL, load_config
 from wiki_rag.search.util import build_context_schema, build_graph
 from wiki_rag.server.server import app
 from wiki_rag.util import setup_logging
@@ -21,13 +21,12 @@ from wiki_rag.vector import load_vector_store
 
 def main():
     """Run the OpenAI server with all the configuration in place."""
-    cfg = load_config(command="server")
-    setup_logging(level=cfg.log_level)
+    setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-server starting up...")
-
-    # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
+
+    cfg = load_config(command="server")
 
     # Parse the bind address from wrapper.api_base.
     parts = cfg.wrapper.api_base.split(":")

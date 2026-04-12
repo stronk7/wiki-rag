@@ -8,7 +8,8 @@
 #
 # Secrets must NOT be placed here. Keep the following in .env or real
 # environment variables only:
-#   OPENAI_API_KEY, OPENAI_API_BASE
+#   OPENAI_API_KEY, EMBEDDING_API_KEY, LLM_API_KEY,
+#   CONTEXTUALISATION_API_KEY, HYDE_API_KEY
 #   LANGSMITH_API_KEY
 #   LANGFUSE_SECRET_KEY, LANGFUSE_PUBLIC_KEY
 #   AUTH_TOKENS, AUTH_URL
@@ -16,6 +17,34 @@
 #   CHROMA_URL, CHROMA_PATH
 #
 # See dotenv.template for the list of expected secret environment variables.
+
+# ---------------------------------------------------------------------------
+# OpenAI-compatible provider
+#
+# openai.api_base is the mandatory general endpoint for all model clients.
+# openai.model is the general model used for answer generation; it also acts
+# as the fallback for search.contextualisation.model and search.hyde.model.
+#
+# Only OPENAI_API_BASE (→ openai.api_base) and LLM_MODEL (→ openai.model)
+# are read from env vars. Per-model overrides are YAML-only.
+# ---------------------------------------------------------------------------
+openai:
+  # Base URL for the OpenAI-compatible API (required for index, search, server, mcp).
+  api_base: "https://api.openai.com/v1"
+
+  # Model used for answer generation (also the fallback for contextualisation
+  # and HyDE when their own model is not configured).
+  # Also accepted via env var LLM_MODEL for backward compatibility.
+  model: "your_llm_model"
+
+  # Maximum tokens to generate in the final answer.
+  max_completion_tokens: 1536
+
+  # LLM sampling temperature (0 = deterministic, 2 = very creative).
+  temperature: 0.05
+
+  # Nucleus sampling probability threshold.
+  top_p: 0.85
 
 # ---------------------------------------------------------------------------
 # MediaWiki sources
@@ -95,16 +124,8 @@ embedding:
   # Dimensionality of the embedding vectors. Must match the model output.
   dimensions: 768
 
-# ---------------------------------------------------------------------------
-# LLM
-# ---------------------------------------------------------------------------
-llm:
-  # Model used to generate answers.
-  model: "your_llm_model"
-
-  # Model used to contextualise questions for RAG (optional).
-  # Leave empty to disable query rewriting and HyDE.
-  contextualisation_model: ""
+  # Optional override for the embedding endpoint (falls back to openai.api_base).
+  # api_base: ""
 
 # ---------------------------------------------------------------------------
 # Search / RAG generation
@@ -123,24 +144,33 @@ search:
   kb_name: "Moodle Docs"
 
   # Minimum cosine-similarity score for a retrieved document to be included.
-  distance_cutoff: 0.6
+  distance_cutoff: 0.4
 
-  # Maximum tokens to generate in the final answer.
-  max_completion_tokens: 1536
+  contextualisation:
+    # Model for query rewriting / contextualisation (optional).
+    # Leave empty to disable query rewriting and HyDE.
+    # Defaults to openai.model when absent.
+    # Also accepted via env var CONTEXTUALISATION_MODEL.
+    model: ""
 
-  # LLM sampling temperature (0 = deterministic, 2 = very creative).
-  temperature: 0.05
-
-  # Nucleus sampling probability threshold.
-  top_p: 0.85
+    # Optional endpoint override (falls back to openai.api_base).
+    # api_base: ""
 
   hyde:
     # Enable HyDE (Hypothetical Document Embeddings) for dense retrieval.
-    # Requires contextualisation_model to be set.
+    # Requires search.contextualisation.model (or search.hyde.model) to be set.
     enabled: false
 
     # Number of hypothetical passages to generate per query.
     passages: 1
+
+    # Optional: model used for HyDE passage generation.
+    # Defaults to search.contextualisation.model → openai.model when absent.
+    # model: ""
+
+    # Optional endpoint override
+    # (falls back to search.contextualisation.api_base → openai.api_base).
+    # api_base: ""
 
 # ---------------------------------------------------------------------------
 # OpenAI-compatible HTTP server (wr-server)

@@ -9,9 +9,18 @@
 
 # ---------------------------------------------------------------------------
 # OpenAI-compatible provider (OpenAI, AI Proxy, Ollama, ...)
+#
+# OPENAI_API_KEY is the mandatory general fallback for all model clients.
+# Per-model keys are optional overrides (same fallback chain as the api_base
+# fields in config.yml: embedding → llm → contextualisation → hyde).
 # ---------------------------------------------------------------------------
-OPENAI_API_BASE="https://openai.com/v1"
 # OPENAI_API_KEY="<<<YOUR_OPENAI_API_KEY>>>"
+# EMBEDDING_API_KEY="<<<YOUR_EMBEDDING_API_KEY>>>"
+# CONTEXTUALISATION_API_KEY="<<<YOUR_CONTEXTUALISATION_API_KEY>>>"
+# HYDE_API_KEY="<<<YOUR_HYDE_API_KEY>>>"
+# Note: api_base and model overrides are non-secret settings; configure them in
+# config.yml under openai.api_base, openai.model, embedding.api_base,
+# search.contextualisation.api_base, and search.hyde.api_base / search.hyde.model.
 
 # ---------------------------------------------------------------------------
 # Milvus credentials

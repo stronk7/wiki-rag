@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from wiki_rag import __version__
-from wiki_rag.config import load_config
+from wiki_rag.config import LOG_LEVEL, load_config
 from wiki_rag.index.util import load_parsed_information
 from wiki_rag.load.util import (
     get_incremental_changes,
@@ -48,13 +48,12 @@ def main():
     )
     args = parser.parse_args()
 
-    cfg = load_config(command="load")
-    setup_logging(level=cfg.log_level)
+    setup_logging(level=LOG_LEVEL)
     logger = logging.getLogger(__name__)
     logger.info("wiki_rag-load starting up...")
-
-    # Print the version of the bot.
     logger.warning(f"Version: {__version__}")
+
+    cfg = load_config(command="load")
 
     logger.info(f"Applying exclusions: {cfg.mediawiki.excluded}")
     logger.info(f"Keeping templates: {cfg.mediawiki.keep_templates}")

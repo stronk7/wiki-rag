@@ -11,6 +11,7 @@ from pathlib import Path
 
 from jsonschema import ValidationError, validate
 from langchain_openai import OpenAIEmbeddings
+from pydantic import SecretStr
 from tqdm import tqdm
 
 import wiki_rag.vector as vector
@@ -73,7 +74,9 @@ def index_pages(
         pages: list[dict],
         collection_name: str,
         embedding_model: str,
-        embedding_dimension: int
+        embedding_dimension: int,
+        embedding_api_base: str = "",
+        embedding_api_key: str = "",
 ) -> list[int]:
     """Index the pages to the collection."""
     logging.getLogger("httpx").setLevel(logging.WARNING)  # Don't log (INFO) all http requests.
@@ -82,6 +85,8 @@ def index_pages(
         model=embedding_model,
         dimensions=embedding_dimension,
         check_embedding_ctx_length=False,
+        base_url=embedding_api_base or None,
+        api_key=SecretStr(embedding_api_key) if embedding_api_key else None,
     )
 
     num_pages = 0
@@ -139,6 +144,8 @@ def index_pages_incremental(
         collection_name: str,
         embedding_model: str,
         embedding_dimension: int,
+        embedding_api_base: str = "",
+        embedding_api_key: str = "",
 ) -> dict[str, int]:
     """Incrementally update the live collection based on each page's change_type.
 
@@ -152,6 +159,8 @@ def index_pages_incremental(
         collection_name: Name of the live collection to update in-place.
         embedding_model: Embedding model to use for new/updated pages.
         embedding_dimension: Embedding vector dimensions.
+        embedding_api_base: Base URL for the OpenAI-compatible embedding endpoint.
+        embedding_api_key: API key for the embedding endpoint.
 
     Returns:
         Summary dict with keys ``"deleted"``, ``"updated"``, ``"created"``,
@@ -179,7 +188,10 @@ def index_pages_incremental(
 
     vector.store.delete_by_page_ids(collection_name, delete_ids)
 
-    [_, sections_indexed] = index_pages(pages_to_insert, collection_name, embedding_model, embedding_dimension)
+    [_, sections_indexed] = index_pages(
+        pages_to_insert, collection_name, embedding_model, embedding_dimension,
+        embedding_api_base, embedding_api_key,
+    )
     counts["sections_indexed"] = sections_indexed
 
     return counts

@@ -17,13 +17,17 @@ from wiki_rag.search.util import (
 
 def _make_context(
     enable_hyde: bool = False,
-    contextualisation_model: str | None = None,
+    contextualisation_model: str = "",
+    hyde_model: str | None = None,
     hyde_passages: int = 1,
 ) -> SimpleNamespace:
     """Build a minimal runtime-like namespace for routing tests."""
+    # hyde_model falls back to contextualisation_model, mirroring build_context_schema().
+    resolved_hyde_model = hyde_model or contextualisation_model or ""
     return SimpleNamespace(context={
         "hyde_enabled": enable_hyde,
         "contextualisation_model": contextualisation_model,
+        "hyde_model": resolved_hyde_model,
         "hyde_passages": hyde_passages,
     })
 
@@ -51,27 +55,33 @@ class TestRouteAfterRewrite(unittest.TestCase):
         self.assertEqual("chitchat", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
 
     def test_route_after_rewrite_hyde_enabled(self):
-        """Returns 'hyde' when hyde_enabled is True and contextualisation_model is set."""
+        """Returns 'hyde_rewrite' when hyde_enabled is True and a model is available."""
         state = _make_state()
         runtime = _make_context(enable_hyde=True, contextualisation_model="gpt-4o-mini")
         self.assertEqual("hyde_rewrite", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
 
+    def test_route_after_rewrite_hyde_enabled_with_dedicated_model(self):
+        """Returns 'hyde_rewrite' when hyde_enabled is True and hyde_model is set directly."""
+        state = _make_state()
+        runtime = _make_context(enable_hyde=True, hyde_model="hyde-specific-model")
+        self.assertEqual("hyde_rewrite", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
+
     def test_route_after_rewrite_hyde_disabled(self):
-        """Returns 'retrieve' when hyde_enabled is False, even with a contextualisation model."""
+        """Returns 'retrieve' when hyde_enabled is False, even with a model set."""
         state = _make_state()
         runtime = _make_context(enable_hyde=False, contextualisation_model="gpt-4o-mini")
         self.assertEqual("retrieve", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
 
-    def test_route_after_rewrite_hyde_no_contextualisation_model(self):
-        """Returns 'retrieve' when hyde_enabled is True but no contextualisation model is set."""
+    def test_route_after_rewrite_hyde_no_model(self):
+        """Returns 'retrieve' when hyde_enabled is True but no model is available."""
         state = _make_state()
-        runtime = _make_context(enable_hyde=True, contextualisation_model=None)
+        runtime = _make_context(enable_hyde=True, contextualisation_model="")
         self.assertEqual("retrieve", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
 
     def test_route_after_rewrite_default_retrieve(self):
         """Returns 'retrieve' when hyde is disabled and no contextualisation model."""
         state = _make_state()
-        runtime = _make_context(enable_hyde=False, contextualisation_model=None)
+        runtime = _make_context(enable_hyde=False, contextualisation_model="")
         self.assertEqual("retrieve", route_after_rewrite(state, runtime))  # type: ignore[arg-type]
 
 
@@ -101,6 +111,8 @@ class TestRetrieveNode(unittest.IsolatedAsyncioTestCase):
             "collection_name": "test_collection",
             "embedding_model": "text-embedding-3-small",
             "embedding_dimension": 512,
+            "embedding_api_base": "https://api.example.com/v1",
+            "embedding_api_key": "test-embed-key",  # pragma: allowlist secret
         })
 
     async def test_retrieve_without_hyde_uses_question_for_both(self):
@@ -123,6 +135,8 @@ class TestRetrieveNode(unittest.IsolatedAsyncioTestCase):
             embedding_dimensions=512,
             queries=["What is a quiz?"],
             sparse_query=None,
+            embedding_api_base="https://api.example.com/v1",
+            embedding_api_key="test-embed-key",  # pragma: allowlist secret
         )
 
     async def test_retrieve_with_hyde_uses_passages_for_dense_question_for_sparse(self):
@@ -146,6 +160,8 @@ class TestRetrieveNode(unittest.IsolatedAsyncioTestCase):
             embedding_dimensions=512,
             queries=passages,
             sparse_query="What is a quiz?",
+            embedding_api_base="https://api.example.com/v1",
+            embedding_api_key="test-embed-key",  # pragma: allowlist secret
         )
 
     async def test_retrieve_with_empty_hyde_texts_falls_back_to_question(self):
@@ -168,6 +184,8 @@ class TestRetrieveNode(unittest.IsolatedAsyncioTestCase):
             embedding_dimensions=512,
             queries=["What is a quiz?"],
             sparse_query=None,
+            embedding_api_base="https://api.example.com/v1",
+            embedding_api_key="test-embed-key",  # pragma: allowlist secret
         )
 
 
@@ -199,6 +217,8 @@ class TestHydeNode(unittest.IsolatedAsyncioTestCase):
             "product": "Moodle",
             "task_def": "Moodle user documentation",
             "kb_name": "Moodle Docs",
+            "hyde_api_base": "https://api.example.com/v1",
+            "hyde_api_key": "test-hyde-key",  # pragma: allowlist secret
         })
 
         with (
@@ -236,6 +256,8 @@ class TestHydeNode(unittest.IsolatedAsyncioTestCase):
             "product": "Moodle",
             "task_def": "Moodle user documentation",
             "kb_name": "Moodle Docs",
+            "hyde_api_base": "https://api.example.com/v1",
+            "hyde_api_key": "test-hyde-key",  # pragma: allowlist secret
         })
 
         with (

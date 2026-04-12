@@ -16,6 +16,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from langchain_openai import OpenAIEmbeddings
+from pydantic import SecretStr
 
 import wiki_rag.config as _config_module
 
@@ -85,6 +86,8 @@ class BaseVector(ABC):
         embedding_dimensions: int,
         queries: list[str],
         sparse_query: str | None = None,
+        embedding_api_base: str = "",
+        embedding_api_key: str = "",
     ) -> list[dict]:
         """Retrieve the best matches for a question from the vector store.
 
@@ -111,6 +114,10 @@ class BaseVector(ABC):
                 passages only (not the original query).
             sparse_query: Raw text for sparse (BM25) search. Defaults to
                 ``queries[0]`` when ``None``.
+            embedding_api_base: Base URL for the OpenAI-compatible embedding
+                endpoint.  Passed directly to ``OpenAIEmbeddings(base_url=)``.
+            embedding_api_key: API key for the embedding endpoint.  Passed
+                directly to ``OpenAIEmbeddings(api_key=)``.
 
         Returns:
             list of matching results
@@ -164,6 +171,8 @@ class BaseVector(ABC):
         embedding_model: str,
         embedding_dimensions: int,
         queries: list[str],
+        api_base: str = "",
+        api_key: str = "",
     ) -> list[float]:
         """Return averaged embeddings for one or more query strings.
 
@@ -171,13 +180,12 @@ class BaseVector(ABC):
         For multiple queries, embeds all strings and returns the element-wise
         average of the resulting vectors.
 
-        The embedding entry point is configured automatically via the
-        OPENAI_API_BASE and OPENAI_API_KEY environment variables.
-
         Args:
             embedding_model: Embedding model to use.
             embedding_dimensions: Embedding dimensions to use.
             queries: One or more query strings to embed and average.
+            api_base: Base URL for the OpenAI-compatible embedding endpoint.
+            api_key: API key for the embedding endpoint.
 
         Returns:
             list of (float) embeddings representing the averaged vector.
@@ -188,6 +196,8 @@ class BaseVector(ABC):
             model=embedding_model,
             dimensions=embedding_dimensions,
             check_embedding_ctx_length=False,
+            base_url=api_base or None,
+            api_key=SecretStr(api_key) if api_key else None,
         )
         if len(queries) == 1:
             return embeddings.embed_query(queries[0].strip())
