@@ -76,6 +76,28 @@ class TestIndexPagesSkipsDeletedPages(unittest.TestCase):
         self.assertEqual(2, mock_vector.store.insert_batch.call_count)
 
 
+class TestIndexPagesSkipsEmptySections(unittest.TestCase):
+    """index_pages() must skip sections whose text is empty after tidying."""
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_index_pages_skips_empty_and_whitespace_sections(self, mock_embeddings_cls, mock_vector):
+        """Empty and whitespace-only sections are neither embedded nor inserted."""
+        mock_embeddings = mock_embeddings_cls.return_value
+        mock_embeddings.embed_documents.return_value = [[0.1] * 4]
+
+        page = _make_page(1, num_sections=3)
+        page["sections"][0]["text"] = "Real content here."  # kept
+        page["sections"][1]["text"] = ""  # empty (e.g. a heading-only container)
+        page["sections"][2]["text"] = "   \n\t "  # whitespace-only
+
+        index_pages([page], "test_col", "model", 4)
+
+        # Only the single section with real content is embedded and inserted.
+        self.assertEqual(1, mock_embeddings.embed_documents.call_count)
+        self.assertEqual(1, mock_vector.store.insert_batch.call_count)
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 
