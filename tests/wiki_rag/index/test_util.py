@@ -98,6 +98,28 @@ class TestIndexPagesSkipsEmptySections(unittest.TestCase):
         self.assertEqual(1, mock_vector.store.insert_batch.call_count)
 
 
+class TestIndexPagesTrimsTextToByteLimit(unittest.TestCase):
+    """index_pages() must trim section text to the Milvus varchar byte limit."""
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_multibyte_text_trimmed_to_byte_limit(self, mock_embeddings_cls, mock_vector):
+        """A section under 5000 chars but over 5000 bytes is trimmed to fit the byte limit."""
+        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+
+        page = _make_page(1, num_sections=1)
+        # 4000 three-byte characters = 12000 bytes: under 5000 chars but well over 5000 bytes.
+        page["sections"][0]["text"] = "€" * 4000
+        index_pages([page], "test_col", "model", 4)
+
+        record = mock_vector.store.insert_batch.call_args.args[1][0]
+        stored = record["text"]
+        # Stored text fits the byte limit and stays valid UTF-8 (no split codepoint).
+        self.assertLessEqual(len(stored.encode("utf-8")), 5000)
+        self.assertEqual(stored, stored.encode("utf-8").decode("utf-8"))
+        self.assertGreater(len(stored), 0)
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 

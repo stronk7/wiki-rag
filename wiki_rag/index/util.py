@@ -113,10 +113,15 @@ def index_pages(
 
             # Calculate the complete text (preamble + text, if existing).
             text_content = section["text"] if section["text"] else ""
-            if len(text_content) > 5000:
-                # TODO: We need to split the text in smaller chunks here, say 2500 max or so. For now, just trim.
-                text_content = text_content[:5000].strip()
-                logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 characters.')
+            # The Milvus "text" varchar limit is measured in UTF-8 bytes, not
+            # characters, so trim on the encoded byte length (decoding back on a
+            # codepoint boundary) to avoid silently dropping sections that contain
+            # multi-byte characters.
+            # TODO: split oversized sections into smaller chunks here instead of trimming.
+            encoded_text = text_content.encode("utf-8")
+            if len(encoded_text) > 5000:
+                text_content = encoded_text[:5000].decode("utf-8", errors="ignore").strip()
+                logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 bytes.')
             complete_text = text_preamble + "\n\n" + text_content
             logger.debug(f"Embedding {text_preamble}, text len {len(text_content)}")
 
