@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [0.16.1] - 2026-06-10
+
+### Fixed
+
+- Docs: Bump minimum Milvus version to 2.6.14 by @fank ([45c5af2](https://github.com/moodlehq/wiki-rag/commit/45c5af2cacf0b87e765a56a5ce5046cbec3d9e15))
+- Index: Skip indexing sections with empty text by @fank ([7c0be65](https://github.com/moodlehq/wiki-rag/commit/7c0be6545d84b9ec0d9c83752516c2995598b6d8))
+- Index: Trim section text to the varchar byte limit by @fank ([5ef35e5](https://github.com/moodlehq/wiki-rag/commit/5ef35e58dddbcd662b7c789f6c55ad29addacf38))
+
+### New Contributors 🧡:
+
+- @fank made their first contribution
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.16.0...v0.16.1
+
 ## [0.16.0] - 2026-05-15
 
 ### Added
@@ -524,6 +538,7 @@ trivial and everything continues working exactly the same.
 
 
 
+[0.16.1]: https://github.com/moodlehq/wiki-rag/compare/v0.16.0..v0.16.1
 [0.16.0]: https://github.com/moodlehq/wiki-rag/compare/v0.15.0..v0.16.0
 [0.15.0]: https://github.com/moodlehq/wiki-rag/compare/v0.14.0..v0.15.0
 [0.14.0]: https://github.com/moodlehq/wiki-rag/compare/v0.13.1..v0.14.0
