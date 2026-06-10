@@ -96,6 +96,15 @@ def index_pages(
         if page.get("change_type") == "deleted":
             continue
         for section in page["sections"]:
+            # Skip sections whose body is empty after tidying — typically a
+            # heading whose content lives entirely in its subsections, or an
+            # image/template-only (or absent) page lead. Indexing them would
+            # embed the title alone, yielding a low-information vector that
+            # surfaces as a contentless hit for unrelated queries.
+            if not (section["text"] or "").strip():
+                logger.debug(f"Skipping empty section: {section['doc_title']} / {section['title']}")
+                continue
+
             # Calculate the preamble text (doc + section title).
             text_preamble = section["doc_title"]
             if section["title"] != section["doc_title"]:
