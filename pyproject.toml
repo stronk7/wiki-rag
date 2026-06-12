@@ -48,15 +48,15 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "build ~= 1.4.0",
+    "build ~= 1.5",
     "codespell ~= 2.4.1",
-    "conventional-pre-commit ~= 4.3.0",
-    "coverage ~= 7.13.2",
-    "detect-secrets ~= 1.5.0",
-    "git-cliff ~= 2.12.0",
-    "pre-commit ~= 4.5.1",
-    "pyright ~= 1.1.408",
-    "ruff ~= 0.14.14",
+    "conventional-pre-commit ~= 4.4",
+    "coverage ~= 7.14",
+    "detect-secrets ~= 1.5",
+    "git-cliff ~= 2.13",
+    "pre-commit ~= 4.6",
+    "pyright ~= 1.1",
+    "ruff ~= 0.15",
 ]
 
 [project.scripts]
