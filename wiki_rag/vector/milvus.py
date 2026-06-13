@@ -58,6 +58,7 @@ class MilvusVector(BaseVector):
         "previous",
         "next",
         "relations",
+        "categories",
         "page_id",
     )
 
@@ -409,6 +410,8 @@ class MilvusVector(BaseVector):
             FieldSchema(name="next", dtype=DataType.ARRAY, element_type=DataType.VARCHAR, max_length=4000,
                         max_capacity=100, is_array=True),
             FieldSchema(name="relations", dtype=DataType.ARRAY, element_type=DataType.VARCHAR, max_length=4000,
+                        max_capacity=100, is_array=True),
+            FieldSchema(name="categories", dtype=DataType.ARRAY, element_type=DataType.VARCHAR, max_length=4000,
                         max_capacity=100, is_array=True),
             FieldSchema(name="page_id", dtype=DataType.INT32),
             FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=100),

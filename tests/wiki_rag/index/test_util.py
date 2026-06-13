@@ -120,6 +120,25 @@ class TestIndexPagesTrimsTextToByteLimit(unittest.TestCase):
         self.assertGreater(len(stored), 0)
 
 
+class TestIndexPagesAttachesCategories(unittest.TestCase):
+    """index_pages() must copy each page's categories onto every chunk record."""
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_page_categories_attached_to_each_chunk(self, mock_embeddings_cls, mock_vector):
+        """Every section record carries its page's categories (page-level value)."""
+        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+
+        page = _make_page(1, num_sections=2)
+        page["categories"] = ["Beta content", "Game Concepts"]
+        index_pages([page], "test_col", "model", 4)
+
+        self.assertEqual(2, mock_vector.store.insert_batch.call_count)
+        for call in mock_vector.store.insert_batch.call_args_list:
+            record = call.args[1][0]
+            self.assertEqual(["Beta content", "Game Concepts"], record["categories"])
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 

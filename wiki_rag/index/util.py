@@ -138,6 +138,7 @@ def index_pages(
                 "previous": [str(prv) for prv in section["previous"]],
                 "next": [str(nxt) for nxt in section["next"]],
                 "relations": [str(rel) for rel in section["relations"]],
+                "categories": [str(cat) for cat in page.get("categories", [])],
                 "page_id": int(section["page_id"]),
                 "doc_id": str(section["doc_id"]),
                 "doc_title": section["doc_title"],
