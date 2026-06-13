@@ -40,6 +40,27 @@ class MilvusVector(BaseVector):
     compatibility: ``'https://user:password@localhost:19530'``.  # pragma: allowlist secret
     """
 
+    #: Scalar/metadata fields requested as search output, in the order they should
+    #: appear. Keep this in sync with the schema built by :meth:`_build_schema`
+    #: (vector fields are intentionally excluded). When a new field is added to the
+    #: schema, add it here too. Fields absent from a given collection are filtered
+    #: out at query time, so older collections keep working without a reindex.
+    OUTPUT_FIELDS: tuple[str, ...] = (
+        "id",
+        "title",
+        "text",
+        "source",
+        "doc_id",
+        "doc_title",
+        "doc_hash",
+        "parent",
+        "children",
+        "previous",
+        "next",
+        "relations",
+        "page_id",
+    )
+
     def __init__(self, cfg: Config) -> None:
         """Initialise the Milvus backend.
 
@@ -53,6 +74,15 @@ class MilvusVector(BaseVector):
         if not self.uri:
             logger.error("Milvus URL not found in configuration. Exiting.")
             sys.exit(1)
+
+        # Per-instance cache of collection field names (one describe_collection per
+        # collection). Keeps search and insert tolerant of collections created before
+        # a new schema field was introduced. Invalidated whenever
+        # this instance creates, drops or renames a collection.
+        self._fields_cache: dict[str, list[str]] = {}
+        # Collections for which we have already warned about dropped record fields,
+        # so the "run wr-index --full" hint is logged once, not per insert batch.
+        self._warned_dropped_fields: set[str] = set()
 
     # BaseVector interface.
 
@@ -88,6 +118,10 @@ class MilvusVector(BaseVector):
 
         client.close()
 
+        # The collection now has the current schema; drop any stale cached fields.
+        self._fields_cache.pop(collection_name, None)
+        self._warned_dropped_fields.discard(collection_name)
+
     def collection_exists(self, name: str) -> bool:
         """Return True if the Milvus collection exists."""
         client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
@@ -100,12 +134,20 @@ class MilvusVector(BaseVector):
         client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
         client.drop_collection(name)
         client.close()
+        self._fields_cache.pop(name, None)
+        self._warned_dropped_fields.discard(name)
 
     def rename_collection(self, old: str, new: str) -> None:
         """Rename a Milvus collection atomically."""
         client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
         client.rename_collection(old, new)
         client.close()
+        # Move any cached state from the old name to the new one.
+        if old in self._fields_cache:
+            self._fields_cache[new] = self._fields_cache.pop(old)
+        if old in self._warned_dropped_fields:
+            self._warned_dropped_fields.discard(old)
+            self._warned_dropped_fields.add(new)
 
     def flush_collection(self, name: str) -> None:
         """Flush all in-memory data to persistent storage, sealing growing segments.
@@ -169,6 +211,26 @@ class MilvusVector(BaseVector):
         """
         client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
         try:
+            # Drop any record keys the collection schema does not know about, so that
+            # collections created before a new field was introduced
+            # keep accepting incremental inserts without a reindex. The dropped data is
+            # simply not stored; warn once per collection so the operator can choose to
+            # run ``wr-index --full`` to materialise the new field.
+            present_fields = set(self._collection_fields(client, collection_name))
+            dropped = {key for record in records for key in record if key not in present_fields}
+            if dropped:
+                if collection_name not in self._warned_dropped_fields:
+                    logger.warning(
+                        "Collection %r is missing field(s) %s; those values are not being "
+                        "stored. Run 'wr-index --full' to recreate the collection with the "
+                        "current schema.",
+                        collection_name, sorted(dropped),
+                    )
+                    self._warned_dropped_fields.add(collection_name)
+                records = [
+                    {key: value for key, value in record.items() if key in present_fields}
+                    for record in records
+                ]
             client.insert(collection_name, records)
         except Exception:
             raise
@@ -274,27 +336,19 @@ class MilvusVector(BaseVector):
             limit=sparse_search_limit,
         )
 
+        # Request only the output fields the collection actually has, so that
+        # collections created before a new field was introduced
+        # keep working without a reindex. Order is preserved from OUTPUT_FIELDS.
+        present_fields = set(self._collection_fields(client, collection_name))
+        output_fields = [field for field in self.OUTPUT_FIELDS if field in present_fields]
+
         # Perform the hybrid search.
         retrieved_docs = client.hybrid_search(
             collection_name,
             [dense_search, sparse_search],
             WeightedRanker(*rerank_weights),
             limit=hybrid_rerank_limit,
-            output_fields=[
-                "id",
-                "title",
-                "text",
-                "source",
-                "doc_id",
-                "doc_title",
-                "doc_hash",
-                "parent",
-                "children",
-                "previous",
-                "next",
-                "relations",
-                "page_id",
-            ],
+            output_fields=output_fields,
         )
         client.close()
 
@@ -306,6 +360,27 @@ class MilvusVector(BaseVector):
         return results
 
     # Internal helpers.
+
+    def _collection_fields(self, client: MilvusClient, name: str) -> list[str]:
+        """Return the field names of a collection, cached per instance.
+
+        Issues a single ``describe_collection`` per collection and caches the
+        result. This lets search and insert stay tolerant of collections created
+        before a new schema field was added: callers can request
+        only the fields the collection actually has.
+
+        Args:
+            client: An open Milvus client.
+            name: Collection name.
+
+        Returns:
+            The list of field names declared in the collection schema.
+
+        """
+        if name not in self._fields_cache:
+            description = client.describe_collection(name)
+            self._fields_cache[name] = [field["name"] for field in description["fields"]]  # type: ignore
+        return self._fields_cache[name]
 
     def _build_schema(self, embedding_dimensions: int) -> CollectionSchema:
         """Build the Milvus schema expected by the wiki_rag ingestion pipe.
