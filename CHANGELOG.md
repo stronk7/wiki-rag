@@ -6,6 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
+## [Unreleased]
+
+### Added
+
+- Index: Include page categories in chunk metadata by @fank ([6079b50](https://github.com/moodlehq/wiki-rag/commit/6079b50905c85ca802bb960692ef35cae7cc1137))
+
+### Changed
+
+- Dependencies: Bump all dev dependencies by @stronk7 ([c11bde5](https://github.com/moodlehq/wiki-rag/commit/c11bde51a50f6555086ae26723eec150a286c699))
+
+### Fixed
+
+- Vector: Make Milvus backend tolerant of legacy collection schemas by @stronk7 ([51682cf](https://github.com/moodlehq/wiki-rag/commit/51682cfae6fa7a8ccb4ad8b441ceaf603ccd7c97))
+- Search: Drop unresolved ids from POC context instead of None
+
 ## [0.16.1] - 2026-06-10
 
 ### Fixed
@@ -538,6 +553,7 @@ trivial and everything continues working exactly the same.
 
 
 
+[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.16.1..HEAD
 [0.16.1]: https://github.com/moodlehq/wiki-rag/compare/v0.16.0..v0.16.1
 [0.16.0]: https://github.com/moodlehq/wiki-rag/compare/v0.15.0..v0.16.0
 [0.15.0]: https://github.com/moodlehq/wiki-rag/compare/v0.14.0..v0.15.0

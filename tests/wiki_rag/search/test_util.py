@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from wiki_rag.search.util import (
     RagState,
     load_prompts_for_rag_from_local,
+    retrieve_all_elements,
     route_after_rewrite,
 )
 
@@ -269,6 +270,93 @@ class TestHydeNode(unittest.IsolatedAsyncioTestCase):
         self.assertIn("hyde_texts", result)
         self.assertEqual(3, len(result["hyde_texts"]))
         self.assertTrue(all(t == fake_passage for t in result["hyde_texts"]))
+
+
+def _make_doc(id: str, title: str, text: str) -> dict:
+    """Build a minimal retrieved_docs entry for retrieve_all_elements tests."""
+    return {"entity": {"id": id, "title": title, "text": text}}
+
+
+class TestRetrieveAllElements(unittest.TestCase):
+
+    def test_all_ids_resolved_from_retrieved_docs(self):
+        """Every id is found in retrieved_docs; texts are returned in context_list order."""
+        retrieved_docs = [
+            _make_doc("a", "Title A", "Body A"),
+            _make_doc("b", "Title B", "Body B"),
+        ]
+        context_list = ["b", "a"]
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store.get_documents_contents_by_id = MagicMock(return_value={})
+            result = retrieve_all_elements(retrieved_docs, context_list, "test_collection")
+
+        self.assertEqual(["Title B\n\nBody B", "Title A\n\nBody A"], result)
+
+    def test_missing_id_resolved_from_vector_store(self):
+        """An id absent from retrieved_docs is fetched from the vector store and kept."""
+        retrieved_docs = [_make_doc("a", "Title A", "Body A")]
+        context_list = ["a", "b"]
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store.get_documents_contents_by_id = MagicMock(
+                return_value={"b": "Title B\n\nBody B"})
+            result = retrieve_all_elements(retrieved_docs, context_list, "test_collection")
+
+        mock_vector.store.get_documents_contents_by_id.assert_called_once_with(
+            "test_collection", ["b"])
+        self.assertEqual(["Title A\n\nBody A", "Title B\n\nBody B"], result)
+
+    def test_unresolved_id_is_dropped(self):
+        """An id neither in retrieved_docs nor returned by the vector store is dropped.
+
+        This is the regression the fix addresses: the returned list must not contain
+        None entries for ids that could not be resolved to any text.
+        """
+        retrieved_docs = [_make_doc("a", "Title A", "Body A")]
+        context_list = ["a", "missing"]
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            # The vector store does not return anything for the missing id.
+            mock_vector.store.get_documents_contents_by_id = MagicMock(return_value={})
+            result = retrieve_all_elements(retrieved_docs, context_list, "test_collection")
+
+        self.assertEqual(["Title A\n\nBody A"], result)
+
+    def test_vector_store_none_text_is_dropped(self):
+        """An id resolved to None by the vector store (empty section) is dropped."""
+        retrieved_docs = [_make_doc("a", "Title A", "Body A")]
+        context_list = ["a", "empty"]
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store.get_documents_contents_by_id = MagicMock(
+                return_value={"empty": None})
+            result = retrieve_all_elements(retrieved_docs, context_list, "test_collection")
+
+        self.assertEqual(["Title A\n\nBody A"], result)
+
+    def test_order_preserved_with_dropped_ids_in_the_middle(self):
+        """Resolved texts keep context_list order even when dropped ids sit between them."""
+        retrieved_docs = [
+            _make_doc("a", "Title A", "Body A"),
+            _make_doc("c", "Title C", "Body C"),
+        ]
+        context_list = ["a", "gone", "c"]
+
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store.get_documents_contents_by_id = MagicMock(return_value={})
+            result = retrieve_all_elements(retrieved_docs, context_list, "test_collection")
+
+        self.assertEqual(["Title A\n\nBody A", "Title C\n\nBody C"], result)
+
+    def test_empty_context_list_returns_empty(self):
+        """An empty context_list returns an empty list and never queries the store."""
+        with patch("wiki_rag.search.util.vector") as mock_vector:
+            mock_vector.store.get_documents_contents_by_id = MagicMock(return_value={})
+            result = retrieve_all_elements([], [], "test_collection")
+
+        self.assertEqual([], result)
+        mock_vector.store.get_documents_contents_by_id.assert_not_called()
 
 
 if __name__ == "__main__":

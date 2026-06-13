@@ -697,8 +697,10 @@ def retrieve_all_elements(retrieved_docs, context_list, collection_name: str) ->
     for id, text in missing_docs.items():
         context_texts[id] = text
 
-    # Now, iterate over the dictionary and return the list of texts.
-    return [context_texts[id] for id in context_list]
+    # Now, iterate over the dictionary and return the list of texts, dropping any
+    # id that could not be resolved to text (missing ids, empty sections, ...). We
+    # cannot return None strings.
+    return [context_texts[id] for id in context_list if context_texts[id] is not None]
 
 
 def get_missing_from_vector_store(context_missing: list, collection_name: str) -> dict:
