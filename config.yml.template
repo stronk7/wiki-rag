@@ -127,6 +127,10 @@ embedding:
   # Optional override for the embedding endpoint (falls back to openai.api_base).
   # api_base: ""
 
+  # Max retries for embedding API calls on rate limits / transient errors. The
+  # OpenAI client backs off exponentially and honours Retry-After. Default: 3.
+  # max_retries: 3
+
 # ---------------------------------------------------------------------------
 # Search / RAG generation
 # ---------------------------------------------------------------------------

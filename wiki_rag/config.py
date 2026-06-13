@@ -182,6 +182,7 @@ class Config:
     index_vendor: str
     embedding_model: str
     embedding_dimensions: int
+    embedding_max_retries: int
     openai_model: str
     contextualisation_model: str | None
     hyde_model: str | None
@@ -506,6 +507,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     # --- Embedding (index, search, server, mcp) ---
     embedding_model = _v("EMBEDDING_MODEL", "embedding.model")
     embedding_dimensions_raw = _v("EMBEDDING_DIMENSIONS", "embedding.dimensions")
+    embedding_max_retries_raw = _v("EMBEDDING_MAX_RETRIES", "embedding.max_retries")
 
     # --- Models (search, server, mcp) ---
     # openai_model is the general model; env var LLM_MODEL kept for backward compatibility.
@@ -620,6 +622,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     milvus_timeout = _parse_float(milvus_timeout_raw, default=30.0)
     rate_limiting = _parse_bool(rate_limiting_raw, default=True)
     embedding_dimensions = _parse_int(embedding_dimensions_raw)
+    embedding_max_retries = _parse_int(embedding_max_retries_raw, default=3)
     distance_cutoff = _parse_float(distance_cutoff_raw, default=0.6)
     max_completion_tokens = _parse_int(max_completion_tokens_raw, default=1536)
     temperature = _parse_float(temperature_raw, default=0.05)
@@ -737,6 +740,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         index_vendor=str(index_vendor or "milvus"),
         embedding_model=str(embedding_model or ""),
         embedding_dimensions=embedding_dimensions,
+        embedding_max_retries=embedding_max_retries,
         openai_model=str(openai_model or ""),
         contextualisation_model=contextualisation_model,
         hyde_model=hyde_model,

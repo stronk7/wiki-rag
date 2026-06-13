@@ -139,6 +139,30 @@ class TestIndexPagesAttachesCategories(unittest.TestCase):
             self.assertEqual(["Beta content", "Game Concepts"], record["categories"])
 
 
+class TestIndexPagesRetries(unittest.TestCase):
+    """index_pages() must configure the embedding client's retry budget."""
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_max_retries_defaults_to_three(self, mock_embeddings_cls, mock_vector):
+        """The OpenAI client (which honours Retry-After) is given 3 retries by default."""
+        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+
+        index_pages([_make_page(1, num_sections=1)], "test_col", "model", 4)
+
+        self.assertEqual(3, mock_embeddings_cls.call_args.kwargs["max_retries"])
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_max_retries_is_forwarded(self, mock_embeddings_cls, mock_vector):
+        """A caller-supplied retry budget reaches the embedding client."""
+        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+
+        index_pages([_make_page(1, num_sections=1)], "test_col", "model", 4, embedding_max_retries=7)
+
+        self.assertEqual(7, mock_embeddings_cls.call_args.kwargs["max_retries"])
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 

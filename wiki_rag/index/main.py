@@ -95,7 +95,7 @@ def main():
                 sys.exit(1)
             summary = index_pages_incremental(
                 pages, cfg.collection_name, cfg.embedding_model, cfg.embedding_dimensions,
-                embedding_api_base, embedding_api_key,
+                embedding_api_base, embedding_api_key, cfg.embedding_max_retries,
             )
             logger.info(
                 f"Incremental index complete — "
@@ -118,7 +118,7 @@ def main():
             logger.info(f'Indexing pages into temp collection "{temp_collection_name}"')
             [total_pages, total_sections] = index_pages(
                 pages, temp_collection_name, cfg.embedding_model, cfg.embedding_dimensions,
-                embedding_api_base, embedding_api_key,
+                embedding_api_base, embedding_api_key, cfg.embedding_max_retries,
             )
             logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
 

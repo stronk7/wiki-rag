@@ -77,8 +77,14 @@ def index_pages(
         embedding_dimension: int,
         embedding_api_base: str = "",
         embedding_api_key: str = "",
+        embedding_max_retries: int = 3,
 ) -> list[int]:
-    """Index the pages to the collection."""
+    """Index the pages to the collection.
+
+    Embedding API calls are retried on rate limits and transient errors:
+    ``embedding_max_retries`` is passed to the OpenAI client, which backs off
+    exponentially and honours any ``Retry-After`` response header.
+    """
     logging.getLogger("httpx").setLevel(logging.WARNING)  # Don't log (INFO) all http requests.
 
     embeddings = OpenAIEmbeddings(
@@ -87,6 +93,7 @@ def index_pages(
         check_embedding_ctx_length=False,
         base_url=embedding_api_base or None,
         api_key=SecretStr(embedding_api_key) if embedding_api_key else None,
+        max_retries=embedding_max_retries,
     )
 
     num_pages = 0
@@ -161,6 +168,7 @@ def index_pages_incremental(
         embedding_dimension: int,
         embedding_api_base: str = "",
         embedding_api_key: str = "",
+        embedding_max_retries: int = 3,
 ) -> dict[str, int]:
     """Incrementally update the live collection based on each page's change_type.
 
@@ -176,6 +184,8 @@ def index_pages_incremental(
         embedding_dimension: Embedding vector dimensions.
         embedding_api_base: Base URL for the OpenAI-compatible embedding endpoint.
         embedding_api_key: API key for the embedding endpoint.
+        embedding_max_retries: Max retries for embedding API calls (rate limits
+            and transient errors).
 
     Returns:
         Summary dict with keys ``"deleted"``, ``"updated"``, ``"created"``,
@@ -205,7 +215,7 @@ def index_pages_incremental(
 
     [_, sections_indexed] = index_pages(
         pages_to_insert, collection_name, embedding_model, embedding_dimension,
-        embedding_api_base, embedding_api_key,
+        embedding_api_base, embedding_api_key, embedding_max_retries,
     )
     counts["sections_indexed"] = sections_indexed
 
