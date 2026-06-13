@@ -11,6 +11,8 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Added
 
 - Index: Include page categories in chunk metadata by @fank ([6079b50](https://github.com/moodlehq/wiki-rag/commit/6079b50905c85ca802bb960692ef35cae7cc1137))
+- Index: Make embedding API retries configurable ([24318f1](https://github.com/moodlehq/wiki-rag/commit/24318f1e8cc3e86be862972f1fd45316ce69451e))
+- Index: Embed and insert sections in batches
 
 ### Changed
 
@@ -19,7 +21,7 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Fixed
 
 - Vector: Make Milvus backend tolerant of legacy collection schemas by @stronk7 ([51682cf](https://github.com/moodlehq/wiki-rag/commit/51682cfae6fa7a8ccb4ad8b441ceaf603ccd7c97))
-- Search: Drop unresolved ids from POC context instead of None
+- Search: Drop unresolved ids from POC context instead of None by @stronk7 ([0a5e89e](https://github.com/moodlehq/wiki-rag/commit/0a5e89ee50f64198d86bc3baa843d55e4ef5edf3))
 
 ## [0.16.1] - 2026-06-10
 

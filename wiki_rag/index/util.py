@@ -70,6 +70,46 @@ def create_temp_collection_schema(collection_name: str, embedding_dimension: int
     vector.store.create_collection(collection_name, embedding_dimension)
 
 
+def _flush_embedding_batch(
+        embeddings: OpenAIEmbeddings,
+        collection_name: str,
+        records: list[dict],
+        texts: list[str],
+) -> int:
+    """Embed a batch of texts, attach the vectors and insert the records.
+
+    Embedding all *texts* in a single call (rather than one per section) is the
+    throughput win: the OpenAI client sends them as one request, amortising the
+    per-call latency over the whole batch.
+
+    Args:
+        embeddings: Configured embedding client.
+        collection_name: Target collection.
+        records: Records to insert, each still missing its ``dense_vector``.
+        texts: Texts to embed, aligned 1:1 with *records*.
+
+    Returns:
+        The number of records successfully inserted (0 when the batch is empty
+        or the embedding/insertion step fails).
+
+    """
+    if not records:
+        return 0
+    try:
+        vectors = embeddings.embed_documents(texts)
+    except Exception as e:
+        logger.error(f"Failed to embed a batch of {len(texts)} sections: {e}")
+        return 0
+    for record, dense_vector in zip(records, vectors, strict=True):
+        record["dense_vector"] = dense_vector
+    try:
+        vector.store.insert_batch(collection_name, records)
+    except Exception as e:
+        logger.error(f"Failed to insert data: {e}")
+        return 0
+    return len(records)
+
+
 def index_pages(
         pages: list[dict],
         collection_name: str,
@@ -78,8 +118,13 @@ def index_pages(
         embedding_api_base: str = "",
         embedding_api_key: str = "",
         embedding_max_retries: int = 3,
+        embedding_batch_size: int = 8,
 ) -> list[int]:
     """Index the pages to the collection.
+
+    Sections are accumulated and embedded in batches of ``embedding_batch_size``
+    (one embedding request per batch instead of one per section), then inserted
+    together.
 
     Embedding API calls are retried on rate limits and transient errors:
     ``embedding_max_retries`` is passed to the OpenAI client, which backs off
@@ -98,6 +143,10 @@ def index_pages(
 
     num_pages = 0
     num_sections = 0
+    # Records and their texts accumulate here until a full batch is ready; each
+    # record gets its dense_vector filled in at flush time (see _flush_embedding_batch).
+    pending_records: list[dict] = []
+    pending_texts: list[str] = []
 
     for page in tqdm(pages, desc="Processing pages", unit="pages"):
         if page.get("change_type") == "deleted":
@@ -130,16 +179,14 @@ def index_pages(
                 text_content = encoded_text[:5000].decode("utf-8", errors="ignore").strip()
                 logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 bytes.')
             complete_text = text_preamble + "\n\n" + text_content
-            logger.debug(f"Embedding {text_preamble}, text len {len(text_content)}")
+            logger.debug(f"Queuing {text_preamble} for embedding, text len {len(text_content)}")
 
-            dense_embedding = embeddings.embed_documents([complete_text])
-            logger.debug(f"Embedding for {text_preamble}, dim len {len(dense_embedding[0])}")
-            record = {
+            # Build the record now, but leave dense_vector to be filled in at flush time.
+            pending_records.append({
                 "id": str(section["id"]),
                 "title": section["title"],
                 "text": text_content,
                 "source": section["source"],
-                "dense_vector": dense_embedding[0],
                 "parent": str(section["parent"]) if section["parent"] else None,
                 "children": [str(child) for child in section["children"]],
                 "previous": [str(prv) for prv in section["previous"]],
@@ -150,13 +197,18 @@ def index_pages(
                 "doc_id": str(section["doc_id"]),
                 "doc_title": section["doc_title"],
                 "doc_hash": str(section["doc_hash"]),
-            }
-            try:
-                vector.store.insert_batch(collection_name, [record])
-                num_sections += 1
-            except Exception as e:
-                logger.error(f"Failed to insert data: {e}")
+            })
+            pending_texts.append(complete_text)
+
+            if len(pending_records) >= embedding_batch_size:
+                num_sections += _flush_embedding_batch(
+                    embeddings, collection_name, pending_records, pending_texts)
+                pending_records = []
+                pending_texts = []
         num_pages += 1
+
+    # Flush any trailing partial batch.
+    num_sections += _flush_embedding_batch(embeddings, collection_name, pending_records, pending_texts)
 
     return [num_pages, num_sections]
 
@@ -169,6 +221,7 @@ def index_pages_incremental(
         embedding_api_base: str = "",
         embedding_api_key: str = "",
         embedding_max_retries: int = 3,
+        embedding_batch_size: int = 8,
 ) -> dict[str, int]:
     """Incrementally update the live collection based on each page's change_type.
 
@@ -186,6 +239,7 @@ def index_pages_incremental(
         embedding_api_key: API key for the embedding endpoint.
         embedding_max_retries: Max retries for embedding API calls (rate limits
             and transient errors).
+        embedding_batch_size: Number of sections embedded per API call.
 
     Returns:
         Summary dict with keys ``"deleted"``, ``"updated"``, ``"created"``,
@@ -215,7 +269,7 @@ def index_pages_incremental(
 
     [_, sections_indexed] = index_pages(
         pages_to_insert, collection_name, embedding_model, embedding_dimension,
-        embedding_api_base, embedding_api_key, embedding_max_retries,
+        embedding_api_base, embedding_api_key, embedding_max_retries, embedding_batch_size,
     )
     counts["sections_indexed"] = sections_indexed
 

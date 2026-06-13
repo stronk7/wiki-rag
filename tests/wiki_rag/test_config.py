@@ -249,6 +249,14 @@ class TestLoadConfigEnvOnly(unittest.TestCase):
         cfg = self._load("index", {"EMBEDDING_MAX_RETRIES": "9"})
         self.assertEqual(9, cfg.embedding_max_retries)
 
+    def test_embedding_batch_size_defaults_to_eight(self):
+        cfg = self._load("index")
+        self.assertEqual(8, cfg.embedding_batch_size)
+
+    def test_embedding_batch_size_from_env(self):
+        cfg = self._load("index", {"EMBEDDING_BATCH_SIZE": "32"})
+        self.assertEqual(32, cfg.embedding_batch_size)
+
     def test_rate_limiting_defaults_to_true(self):
         cfg = self._load("load")
         self.assertTrue(cfg.loader.rate_limiting)

@@ -183,6 +183,7 @@ class Config:
     embedding_model: str
     embedding_dimensions: int
     embedding_max_retries: int
+    embedding_batch_size: int
     openai_model: str
     contextualisation_model: str | None
     hyde_model: str | None
@@ -508,6 +509,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     embedding_model = _v("EMBEDDING_MODEL", "embedding.model")
     embedding_dimensions_raw = _v("EMBEDDING_DIMENSIONS", "embedding.dimensions")
     embedding_max_retries_raw = _v("EMBEDDING_MAX_RETRIES", "embedding.max_retries")
+    embedding_batch_size_raw = _v("EMBEDDING_BATCH_SIZE", "embedding.batch_size")
 
     # --- Models (search, server, mcp) ---
     # openai_model is the general model; env var LLM_MODEL kept for backward compatibility.
@@ -623,6 +625,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     rate_limiting = _parse_bool(rate_limiting_raw, default=True)
     embedding_dimensions = _parse_int(embedding_dimensions_raw)
     embedding_max_retries = _parse_int(embedding_max_retries_raw, default=3)
+    embedding_batch_size = _parse_int(embedding_batch_size_raw, default=8)
     distance_cutoff = _parse_float(distance_cutoff_raw, default=0.6)
     max_completion_tokens = _parse_int(max_completion_tokens_raw, default=1536)
     temperature = _parse_float(temperature_raw, default=0.05)
@@ -741,6 +744,7 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         embedding_model=str(embedding_model or ""),
         embedding_dimensions=embedding_dimensions,
         embedding_max_retries=embedding_max_retries,
+        embedding_batch_size=embedding_batch_size,
         openai_model=str(openai_model or ""),
         contextualisation_model=contextualisation_model,
         hyde_model=hyde_model,

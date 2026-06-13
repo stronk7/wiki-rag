@@ -50,6 +50,20 @@ def _make_page(page_id: int, change_type: str | None = None, num_sections: int =
     return page
 
 
+def _embed_side_effect(dim: int = 4):
+    """Return an embed_documents side effect yielding one vector per input text.
+
+    The batched embedder calls embed_documents() with a list of N texts and
+    expects N vectors back, so the mock must size its output to the input.
+    """
+    return lambda texts: [[0.1] * dim for _ in texts]
+
+
+def _inserted_records(mock_vector) -> list[dict]:
+    """Flatten every record passed across all insert_batch() calls."""
+    return [record for call in mock_vector.store.insert_batch.call_args_list for record in call.args[1]]
+
+
 class TestIndexPagesSkipsDeletedPages(unittest.TestCase):
     """index_pages() must skip pages whose change_type is 'deleted'."""
 
@@ -68,12 +82,12 @@ class TestIndexPagesSkipsDeletedPages(unittest.TestCase):
     @patch("wiki_rag.index.util.OpenAIEmbeddings")
     def test_index_pages_indexes_non_deleted_pages(self, mock_embeddings_cls, mock_vector):
         """Pages without change_type (full dump) are indexed normally."""
-        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+        mock_embeddings_cls.return_value.embed_documents.side_effect = _embed_side_effect()
 
         pages = [_make_page(1, num_sections=2)]  # no change_type key
         index_pages(pages, "test_col", "model", 4)
 
-        self.assertEqual(2, mock_vector.store.insert_batch.call_count)
+        self.assertEqual(2, len(_inserted_records(mock_vector)))
 
 
 class TestIndexPagesSkipsEmptySections(unittest.TestCase):
@@ -127,15 +141,15 @@ class TestIndexPagesAttachesCategories(unittest.TestCase):
     @patch("wiki_rag.index.util.OpenAIEmbeddings")
     def test_page_categories_attached_to_each_chunk(self, mock_embeddings_cls, mock_vector):
         """Every section record carries its page's categories (page-level value)."""
-        mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+        mock_embeddings_cls.return_value.embed_documents.side_effect = _embed_side_effect()
 
         page = _make_page(1, num_sections=2)
         page["categories"] = ["Beta content", "Game Concepts"]
         index_pages([page], "test_col", "model", 4)
 
-        self.assertEqual(2, mock_vector.store.insert_batch.call_count)
-        for call in mock_vector.store.insert_batch.call_args_list:
-            record = call.args[1][0]
+        records = _inserted_records(mock_vector)
+        self.assertEqual(2, len(records))
+        for record in records:
             self.assertEqual(["Beta content", "Game Concepts"], record["categories"])
 
 
@@ -163,6 +177,48 @@ class TestIndexPagesRetries(unittest.TestCase):
         self.assertEqual(7, mock_embeddings_cls.call_args.kwargs["max_retries"])
 
 
+class TestIndexPagesBatching(unittest.TestCase):
+    """index_pages() must embed and insert sections in batches."""
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_sections_within_one_batch_use_a_single_embed_and_insert(self, mock_embeddings_cls, mock_vector):
+        """Sections under the batch size are embedded and inserted in one call each."""
+        mock_embeddings = mock_embeddings_cls.return_value
+        mock_embeddings.embed_documents.side_effect = _embed_side_effect()
+
+        index_pages([_make_page(1, num_sections=3)], "test_col", "model", 4, embedding_batch_size=8)
+
+        # One embed call carrying all 3 texts, one insert call carrying all 3 records.
+        self.assertEqual([3], [len(c.args[0]) for c in mock_embeddings.embed_documents.call_args_list])
+        self.assertEqual([3], [len(c.args[1]) for c in mock_vector.store.insert_batch.call_args_list])
+        self.assertEqual(3, len(_inserted_records(mock_vector)))
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_sections_are_flushed_when_batch_size_is_reached(self, mock_embeddings_cls, mock_vector):
+        """With batch size 2, five sections flush as batches of 2, 2 and 1."""
+        mock_embeddings = mock_embeddings_cls.return_value
+        mock_embeddings.embed_documents.side_effect = _embed_side_effect()
+
+        index_pages([_make_page(1, num_sections=5)], "test_col", "model", 4, embedding_batch_size=2)
+
+        self.assertEqual([2, 2, 1], [len(c.args[0]) for c in mock_embeddings.embed_documents.call_args_list])
+        self.assertEqual([2, 2, 1], [len(c.args[1]) for c in mock_vector.store.insert_batch.call_args_list])
+        self.assertEqual(5, len(_inserted_records(mock_vector)))
+
+    @patch("wiki_rag.index.util.vector")
+    @patch("wiki_rag.index.util.OpenAIEmbeddings")
+    def test_embedding_failure_skips_the_batch_without_inserting(self, mock_embeddings_cls, mock_vector):
+        """If a batch fails to embed, it is skipped (no insert) and not counted."""
+        mock_embeddings_cls.return_value.embed_documents.side_effect = RuntimeError("boom")
+
+        [_, sections] = index_pages([_make_page(1, num_sections=2)], "test_col", "model", 4)
+
+        self.assertEqual(0, sections)
+        mock_vector.store.insert_batch.assert_not_called()
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 
@@ -172,7 +228,7 @@ class TestIndexPagesIncremental(unittest.TestCase):
             patch("wiki_rag.index.util.vector") as mock_vector,
             patch("wiki_rag.index.util.OpenAIEmbeddings") as mock_embeddings_cls,
         ):
-            mock_embeddings_cls.return_value.embed_documents.return_value = [[0.1] * 4]
+            mock_embeddings_cls.return_value.embed_documents.side_effect = _embed_side_effect()
             summary = index_pages_incremental(pages, "live_col", "model", 4)
             return summary, mock_vector, mock_embeddings_cls
 
@@ -221,7 +277,7 @@ class TestIndexPagesIncremental(unittest.TestCase):
         # Pages 1 (deleted) and 2 (updated) must be in the delete call.
         mock_vector.store.delete_by_page_ids.assert_called_once_with("live_col", [1, 2])
         # Pages 2 (updated) and 3 (created) are inserted: 1 + 3 = 4 sections.
-        self.assertEqual(4, mock_vector.store.insert_batch.call_count)
+        self.assertEqual(4, len(_inserted_records(mock_vector)))
 
     def test_incremental_returns_summary_counts(self):
         """Returned summary dict contains correct per-category counts."""
