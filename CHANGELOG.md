@@ -6,16 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html),
 and commits should be formatted using [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/).
 
-## [Unreleased]
+## [0.17.0] - 2026-06-14
 
 ### Added
 
 - Index: Include page categories in chunk metadata by @fank ([6079b50](https://github.com/moodlehq/wiki-rag/commit/6079b50905c85ca802bb960692ef35cae7cc1137))
 - Index: Make embedding API retries configurable by @stronk7 ([24318f1](https://github.com/moodlehq/wiki-rag/commit/24318f1e8cc3e86be862972f1fd45316ce69451e))
 - Index: Embed and insert sections in batches by @stronk7 ([9718a7f](https://github.com/moodlehq/wiki-rag/commit/9718a7f29ceef4e91cba8e664191cc5ecebd1b3c))
-- Index: Chunk sections at index time with chunk-aware search
+- Index: Chunk sections at index time with chunk-aware search by @stronk7 ([51a193e](https://github.com/moodlehq/wiki-rag/commit/51a193e3bc2bd69293383f7615eea6995c2d70cf))
   - **BREAKING**: existing collections keep working unchanged for both
-indexing and search, but the new section_id/chunk_index fields are only
+indexing and search, but some new section/chunk fields are only
 populated by a full reindex. Running `wr-index --full` once is highly
 recommended so the whole collection is re-chunked and chunk reassembly
 takes effect.
@@ -29,6 +29,8 @@ takes effect.
 
 - Vector: Make Milvus backend tolerant of legacy collection schemas by @stronk7 ([51682cf](https://github.com/moodlehq/wiki-rag/commit/51682cfae6fa7a8ccb4ad8b441ceaf603ccd7c97))
 - Search: Drop unresolved ids from POC context instead of None by @stronk7 ([0a5e89e](https://github.com/moodlehq/wiki-rag/commit/0a5e89ee50f64198d86bc3baa843d55e4ef5edf3))
+
+**Full Changelog**: https://github.com/moodlehq/wiki-rag/compare/v0.16.1...v0.17.0
 
 ## [0.16.1] - 2026-06-10
 
@@ -562,7 +564,7 @@ trivial and everything continues working exactly the same.
 
 
 
-[unreleased]: https://github.com/moodlehq/wiki-rag/compare/v0.16.1..HEAD
+[0.17.0]: https://github.com/moodlehq/wiki-rag/compare/v0.16.1..v0.17.0
 [0.16.1]: https://github.com/moodlehq/wiki-rag/compare/v0.16.0..v0.16.1
 [0.16.0]: https://github.com/moodlehq/wiki-rag/compare/v0.15.0..v0.16.0
 [0.15.0]: https://github.com/moodlehq/wiki-rag/compare/v0.14.0..v0.15.0

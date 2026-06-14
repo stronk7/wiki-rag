@@ -70,7 +70,7 @@ To get started with Wiki-RAG, ensure you have the following:
 5. **Run the Application**:
    The application comes with four different executables:
    - `wr-load`: Will parse all the configured pages in the source Mediawiki site, extracting contents and other important metadata. All the generated information will be stored into a JSON file in the `data` directory. Supports `--incremental` mode to only re-fetch changed pages since a previous dump.
-   - `wr-index`: In charge of creating (or incrementally updating) the collection in the vector index (Milvus) with all the information extracted in the previous step. Automatically uses incremental mode for incremental dumps; use `--full` to force a full reindex. Sections longer than the configured limit can be split into multiple chunks (see `index.chunking` in `config.yml.template`): strategies are `none` (trim at the storage limit, the default and historical behaviour), `fixed` (split at word boundaries with overlap) and `paragraph` (pack whole paragraphs, recommended). Chunks are transparently reassembled at query time, so answers always see whole sections. Enabling or changing chunking requires one `wr-index --full` run to take full effect (older collections keep working unchanged in the meantime).
+   - `wr-index`: In charge of creating (or incrementally updating) the collection in the vector index (Milvus) with all the information extracted in the previous step. Automatically uses incremental mode for incremental dumps; use `--full` to force a full reindex. Chunking supported.
    - `wr-search`: A tiny CLI utility to perform searches against the RAG system from the command line.
    - `wr-server`: A comprehensive and secure web service (documented with OpenAPI) that allows users to interact with the RAG system using the OpenAI API (`v1/models` and `v1/chat/completions` endpoints) as if it were a large language model (LLM). Protected with bearer tokens (local list via `AUTH_TOKENS` and/or remote delegation via `AUTH_URL`). Supports streaming responses.
    - `wr-mcp`: A complete built-in MCP server that allows you to access to various parts of Wiki-RAG like prompts (system and use prompt with placeholders), resources (access to the source parsed documents) and tools (retrieve, optimise and generate) using the [MCP Protocol](https://modelcontextprotocol.io/). Uses the same authentication schema as `wr-server`.
@@ -162,7 +162,7 @@ To get started with Wiki-RAG, ensure you have the following:
    ~~[support partial/incremental indexing](https://github.com/moodlehq/wiki-rag/commit/ccd4c4a)~~ /
    process multiple mediawiki sites /
    process other sites (docusaurus, ...) /
-   more granular splits /
+   [more granular splits/chunking](https://github.com/moodlehq/wiki-rag/commit/51a193e3bc2bd69293383f7615eea6995c2d70cf) /
    loaders to become plugins /
    [use markdown as "backend format"](https://github.com/moodlehq/wiki-rag/issues/5) /
    ~~[include/exclude lists](https://github.com/moodlehq/wiki-rag/commit/454d2bc244dfd933589239413589c73437f0f4d9)~~ /
@@ -189,7 +189,7 @@ To get started with Wiki-RAG, ensure you have the following:
    detect out of scope questions better /
    semantic routing /
    ~~[support MCP (model context protocol)](https://github.com/moodlehq/wiki-rag/issues/4)~~ /
-   protected (bearer token) MCP server /
+   ~~[protected (bearer token) MCP server](https://github.com/moodlehq/wiki-rag/commit/b26e9ee81b5f1f12c5eeab62811911e09ca20276)~~ /
    make everything pluggable /
    add unit and integration tests /
    automate checks and releases
