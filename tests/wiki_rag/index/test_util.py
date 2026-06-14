@@ -4,12 +4,17 @@
 """wiki_rag.index.util tests."""
 
 import unittest
+import uuid
 
 from unittest.mock import MagicMock, patch
 
 from wiki_rag.index.util import (
+    chunking_signature,
     index_pages,
     index_pages_incremental,
+    marker_content,
+    marker_matches,
+    marker_signature,
     replace_previous_collection,
 )
 
@@ -219,6 +224,82 @@ class TestIndexPagesBatching(unittest.TestCase):
         mock_vector.store.insert_batch.assert_not_called()
 
 
+class TestIndexPagesChunking(unittest.TestCase):
+    """index_pages() must split oversized sections into chunked records."""
+
+    def _run(self, pages: list[dict], **chunking) -> list[dict]:
+        """Run index_pages with mocks and return all inserted records.
+
+        Records and their texts accumulate into embedding batches, so flatten
+        across every embed/insert call rather than assuming one call per chunk.
+        """
+        with (
+            patch("wiki_rag.index.util.vector") as mock_vector,
+            patch("wiki_rag.index.util.OpenAIEmbeddings") as mock_embeddings_cls,
+        ):
+            embed = mock_embeddings_cls.return_value.embed_documents
+            embed.side_effect = _embed_side_effect()
+            index_pages(pages, "test_col", "model", 4, **chunking)
+            self.embed_calls = [text for call in embed.call_args_list for text in call.args[0]]
+            return _inserted_records(mock_vector)
+
+    def test_single_chunk_section_keeps_the_section_record_shape(self):
+        page = _make_page(1, num_sections=1)
+        page["sections"][0]["parent"] = "parent-uuid"
+        page["sections"][0]["children"] = ["child-uuid"]
+        [record] = self._run([page], chunk_strategy="paragraph", chunk_max_bytes=1000)
+
+        self.assertEqual("sec-1-0", record["id"])
+        self.assertEqual("sec-1-0", record["section_id"])
+        self.assertEqual(0, record["chunk_index"])
+        self.assertEqual("Some text content", record["text"])
+        self.assertEqual("parent-uuid", record["parent"])
+        self.assertEqual(["child-uuid"], record["children"])
+
+    def test_oversized_section_produces_ordered_chunks(self):
+        page = _make_page(1, num_sections=1)
+        page["sections"][0]["parent"] = "parent-uuid"
+        paragraphs = [(f"para{i} " * 30).strip() for i in range(4)]
+        page["sections"][0]["text"] = "\n\n".join(paragraphs)
+        records = self._run([page], chunk_strategy="paragraph", chunk_max_bytes=300)
+
+        self.assertGreater(len(records), 1)
+        section_id = "sec-1-0"
+        for chunk_index, record in enumerate(records):
+            if chunk_index == 0:
+                self.assertEqual(section_id, record["id"])
+            else:
+                expected_id = str(uuid.uuid5(uuid.NAMESPACE_OID, f"{section_id}-{chunk_index}".encode()))
+                self.assertEqual(expected_id, record["id"])
+            self.assertEqual(section_id, record["section_id"])
+            self.assertEqual(chunk_index, record["chunk_index"])
+            # Graph fields are copied verbatim from the section (section ids only).
+            self.assertEqual("parent-uuid", record["parent"])
+            self.assertLessEqual(len(record["text"].encode("utf-8")), 300)
+        # No content lost: all paragraphs present across the chunks.
+        joined = "\n\n".join(record["text"] for record in records)
+        for paragraph in paragraphs:
+            self.assertIn(paragraph, joined)
+
+    def test_strategy_none_trims_exactly_like_before(self):
+        page = _make_page(1, num_sections=1)
+        page["sections"][0]["text"] = "€" * 4000  # 12000 bytes.
+        records = self._run([page], chunk_strategy="none", chunk_max_bytes=5000)
+
+        self.assertEqual(1, len(records))
+        self.assertEqual("€" * 1666, records[0]["text"])  # 5000 bytes // 3.
+        self.assertEqual(0, records[0]["chunk_index"])
+
+    def test_each_chunk_is_embedded_with_the_preamble(self):
+        page = _make_page(1, num_sections=1)
+        page["sections"][0]["text"] = "\n\n".join((f"para{i} " * 30).strip() for i in range(4))
+        records = self._run([page], chunk_strategy="paragraph", chunk_max_bytes=300)
+
+        self.assertEqual(len(records), len(self.embed_calls))
+        for record, embedded in zip(records, self.embed_calls, strict=True):
+            self.assertEqual(f"Page 1 / Section 0\n\n{record['text']}", embedded)
+
+
 class TestIndexPagesIncremental(unittest.TestCase):
     """index_pages_incremental() must route pages correctly."""
 
@@ -318,3 +399,39 @@ class TestReplacePreviousCollection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestIdempotencyMarker(unittest.TestCase):
+    """Marker helpers must invalidate the skip when chunking settings change."""
+
+    def test_signature_is_normalised_for_strategy_none(self):
+        self.assertEqual("none:5000:0", chunking_signature("none", 3000, 300))
+
+    def test_signature_records_strategy_and_sizes(self):
+        self.assertEqual("paragraph:3000:300", chunking_signature("paragraph", 3000, 300))
+
+    def test_marker_roundtrip_matches(self):
+        content = marker_content("dump-2026.json", "paragraph:3000:300")
+        self.assertTrue(marker_matches(content, "dump-2026.json", "paragraph:3000:300"))
+
+    def test_legacy_single_line_marker_matches_only_none(self):
+        self.assertTrue(marker_matches("dump-2026.json", "dump-2026.json", "none:5000:0"))
+        self.assertFalse(marker_matches("dump-2026.json", "dump-2026.json", "paragraph:3000:300"))
+
+    def test_different_dump_name_does_not_match(self):
+        content = marker_content("dump-old.json", "none:5000:0")
+        self.assertFalse(marker_matches(content, "dump-new.json", "none:5000:0"))
+
+    def test_changed_chunking_settings_do_not_match(self):
+        content = marker_content("dump-2026.json", "paragraph:3000:300")
+        self.assertFalse(marker_matches(content, "dump-2026.json", "paragraph:1500:300"))
+
+    def test_empty_marker_does_not_match(self):
+        self.assertFalse(marker_matches("", "dump-2026.json", "none:5000:0"))
+
+    def test_marker_signature_reads_recorded_signature(self):
+        content = marker_content("dump-2026.json", "paragraph:3000:300")
+        self.assertEqual("paragraph:3000:300", marker_signature(content))
+
+    def test_marker_signature_defaults_legacy_marker_to_none(self):
+        self.assertEqual("none:5000:0", marker_signature("dump-2026.json"))

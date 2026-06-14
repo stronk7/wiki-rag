@@ -554,6 +554,23 @@ async def retrieve(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     return {"vector_search": results}
 
 
+def section_key(entity: dict) -> str:
+    """Return the owning section id of a retrieved record.
+
+    Records from chunk-aware collections carry a ``section_id`` field (the
+    owning section's UUID). Legacy collections predate chunking, so every
+    record is its own single-chunk section and the record id is used.
+
+    Args:
+        entity: The ``entity`` dict of a retrieved document.
+
+    Returns:
+        The section id the record belongs to.
+
+    """
+    return entity.get("section_id") or entity["id"]
+
+
 async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
     """Optimise the retrieved documents to build the context for the answer.
 
@@ -585,6 +602,10 @@ async def optimise(state: RagState, runtime: Runtime[ContextSchema]) -> dict:
         for element in ["id", "parent", "children", "previous", "next"]:
             if element in doc["entity"]:
                 el = doc["entity"][element]
+                # Chunks of the same section pool their popularity under the
+                # owning section id; all other fields already hold section ids.
+                if element == "id":
+                    el = section_key(doc["entity"])
                 # Empty elements are not counted.
                 if not el:
                     continue
@@ -628,6 +649,10 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5)
     """Given the originally retrieved docs and the sorted, weighted items, build the rag final context.
 
     POC: Build the new context by using Parent, Own and Children elements.
+
+    All ids handled here are **section** ids: retrieved chunks are matched
+    by their owning section, so a hit on any chunk exposes the section's
+    relationship metadata (identical across its chunks).
     """
     context_list = []
     sources_list = []
@@ -636,15 +661,16 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5)
     while current < min(len(sorted_items), top):
         # Let's examine the element in the sorted_items list.
         element_id = sorted_items[current][0]
-        # Find the element in the retrieved_docs list.
-        if element := [doc for doc in retrieved_docs if doc["entity"]["id"] == element_id]:
+        # Find the element in the retrieved_docs list (any chunk of it will
+        # do: title, source and relationships are the same for all of them).
+        if element := [doc for doc in retrieved_docs if section_key(doc["entity"]) == element_id]:
             element = element[0]
             # If the element has a parent, let's find it and add it to the context list (if not added already).
             if element["entity"]["parent"] and element["entity"]["parent"] not in context_list:
                 context_list.append(element["entity"]["parent"])
             # Now, add the element itself to the context list (if not added already).
-            if element["entity"]["id"] not in context_list:
-                context_list.append(element["entity"]["id"])
+            if section_key(element["entity"]) not in context_list:
+                context_list.append(section_key(element["entity"]))
                 # Build the mediawiki link for the source.
                 link = ""
                 if element["entity"]["parent"]:
@@ -678,13 +704,21 @@ def build_poc_context(retrieved_docs, sorted_items, collection_name: str, top=5)
 
 
 def retrieve_all_elements(retrieved_docs, context_list, collection_name: str) -> list[str]:
-    """Given the already built content_List, let's retrieve all the texts for the elements in the list."""
+    """Given the already built content_List, let's retrieve all the texts for the elements in the list.
+
+    The list holds **section** ids. A cached (retrieved) text is only used
+    when it is provably the whole section, i.e. a legacy record (which is
+    always a complete section). Records from chunk-aware collections may be
+    partial — the total chunk count is unknown from a hit alone — so those
+    sections are batch-fetched from the store, which reassembles all their
+    chunks in order.
+    """
     context_texts = {}
     context_missing = []
     for id in context_list:
-        # First, verify if we already have the text in the retrieved_docs list.
-        retrieved = [doc for doc in retrieved_docs if doc["entity"]["id"] == id]
-        if retrieved:
+        # First, verify if we already have the (whole) text in the retrieved_docs list.
+        retrieved = [doc for doc in retrieved_docs if section_key(doc["entity"]) == id]
+        if retrieved and not retrieved[0]["entity"].get("section_id"):
             context_texts[id] = f"{retrieved[0]["entity"]["title"]}\n\n{retrieved[0]["entity"]["text"]}"
         else:
             context_texts[id] = None
@@ -704,11 +738,15 @@ def retrieve_all_elements(retrieved_docs, context_list, collection_name: str) ->
 
 
 def get_missing_from_vector_store(context_missing: list, collection_name: str) -> dict:
-    """Given the missing elements, let's retrieve them from the vector store."""
+    """Given the missing section ids, let's retrieve them from the vector store.
+
+    Sections are fetched with all their chunks reassembled in order; on
+    legacy collections this falls back to a plain by-id lookup.
+    """
     if not context_missing:  # No missing elements, nothing extra to retrieve.
         return {}
 
-    return vector.store.get_documents_contents_by_id(collection_name, context_missing)
+    return vector.store.get_documents_contents_by_section_ids(collection_name, context_missing)
 
 
 async def generate(state: RagState, runtime: Runtime[ContextSchema]) -> dict:

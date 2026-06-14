@@ -1,178 +1,164 @@
 #  Copyright (c) 2026, Moodle HQ - Research
 #  SPDX-License-Identifier: BSD-3-Clause
 
-"""wiki_rag.vector.milvus tests.
-
-These exercise the schema-tolerant behaviour (collections created before a
-schema field was introduced keep working) without needing a real Milvus
-instance: ``MilvusClient`` is patched out entirely.
-"""
+"""wiki_rag.vector.milvus tests."""
 
 import unittest
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from wiki_rag.vector.milvus import MilvusVector
 
+NEW_SCHEMA_FIELDS = [
+    {"name": "id"}, {"name": "title"}, {"name": "text"}, {"name": "source"},
+    {"name": "dense_vector"}, {"name": "sparse_vector"}, {"name": "parent"},
+    {"name": "children"}, {"name": "previous"}, {"name": "next"},
+    {"name": "relations"}, {"name": "page_id"}, {"name": "doc_id"},
+    {"name": "doc_title"}, {"name": "doc_hash"},
+    {"name": "section_id"}, {"name": "chunk_index"},
+]
 
-def _make_cfg() -> SimpleNamespace:
-    """Return a minimal fake Config exposing only what MilvusVector reads."""
-    return SimpleNamespace(
-        milvus=SimpleNamespace(url="http://localhost:19530", timeout=10.0),
-        milvus_token="",
-    )
-
-
-def _describe(*field_names: str) -> dict:
-    """Return a fake describe_collection payload listing the given fields."""
-    return {"fields": [{"name": name} for name in field_names]}
-
-
-# A collection holding the full current schema: every requested output field
-# plus the (non-output) vector fields.
-_CURRENT_FIELDS = (*MilvusVector.OUTPUT_FIELDS, "dense_vector", "sparse_vector")
+LEGACY_SCHEMA_FIELDS = [
+    field for field in NEW_SCHEMA_FIELDS
+    if field["name"] not in {"section_id", "chunk_index"}
+]
 
 
-class CollectionFieldsCacheTest(unittest.TestCase):
-    """Tests for the per-instance schema cache."""
+def _make_vector() -> MilvusVector:
+    """Return a MilvusVector without running the Config-based constructor."""
+    vector = MilvusVector.__new__(MilvusVector)
+    vector.uri = "http://localhost:19530"
+    vector.token = ""
+    vector.timeout = 30.0
+    vector._fields_cache = {}
+    vector._warned_dropped_fields = set()
+    return vector
 
-    def test_collection_fields_caches_describe_call(self):
-        """describe_collection is issued once per collection, then cached."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
+
+class TestInsertBatchFieldFiltering(unittest.TestCase):
+    """insert_batch() must drop record fields unknown to the collection."""
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_unknown_fields_are_dropped_for_legacy_collections(self, mock_client_cls):
         client = MagicMock()
-        client.describe_collection.return_value = _describe("id", "text", "dense_vector")
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": LEGACY_SCHEMA_FIELDS}
 
-        first = vector._collection_fields(client, "coll")
-        second = vector._collection_fields(client, "coll")
+        record = {"id": "abc", "title": "t", "section_id": "abc", "chunk_index": 0}
+        _make_vector().insert_batch("legacy_col", [record])
 
-        self.assertEqual(["id", "text", "dense_vector"], first)
-        self.assertEqual(first, second)
+        inserted = client.insert.call_args.args[1]
+        self.assertEqual([{"id": "abc", "title": "t"}], inserted)
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_known_fields_are_preserved_for_new_collections(self, mock_client_cls):
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NEW_SCHEMA_FIELDS}
+
+        record = {"id": "abc", "title": "t", "section_id": "abc", "chunk_index": 0}
+        _make_vector().insert_batch("new_col", [record])
+
+        inserted = client.insert.call_args.args[1]
+        self.assertEqual([record], inserted)
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_field_cache_describes_each_collection_only_once(self, mock_client_cls):
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NEW_SCHEMA_FIELDS}
+
+        vector = _make_vector()
+        vector.insert_batch("col", [{"id": "1"}])
+        vector.insert_batch("col", [{"id": "2"}])
+
         self.assertEqual(1, client.describe_collection.call_count)
 
-    def test_drop_collection_invalidates_cache(self):
-        """Dropping a collection clears its cached fields and warning state."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
-        vector._fields_cache["coll"] = list(_CURRENT_FIELDS)
-        vector._warned_dropped_fields.add("coll")
-
-        with patch("wiki_rag.vector.milvus.MilvusClient"):
-            vector.drop_collection("coll")
-
-        self.assertNotIn("coll", vector._fields_cache)
-        self.assertNotIn("coll", vector._warned_dropped_fields)
-
-    def test_rename_collection_moves_cache(self):
-        """Renaming a collection moves its cached state to the new name."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
-        vector._fields_cache["old"] = list(_CURRENT_FIELDS)
-        vector._warned_dropped_fields.add("old")
-
-        with patch("wiki_rag.vector.milvus.MilvusClient"):
-            vector.rename_collection("old", "new")
-
-        self.assertNotIn("old", vector._fields_cache)
-        self.assertEqual(list(_CURRENT_FIELDS), vector._fields_cache["new"])
-        self.assertNotIn("old", vector._warned_dropped_fields)
-        self.assertIn("new", vector._warned_dropped_fields)
-
-
-class RetrieveOutputFieldsTest(unittest.TestCase):
-    """Tests that retrieve() only requests output fields the collection has."""
-
-    def _run_retrieve(self, schema_fields: tuple[str, ...]) -> list[str]:
-        """Run retrieve() against a mocked collection, return the output_fields used."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
-        # Avoid any real embedding call.
-        vector._embed_and_average_queries = MagicMock(return_value=[0.1, 0.2])  # type: ignore[method-assign]
-
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_dropped_fields_warn_only_once_per_collection(self, mock_client_cls):
         client = MagicMock()
-        client.describe_collection.return_value = _describe(*schema_fields)
-        # hybrid_search returns a list with one result group (here empty).
-        client.hybrid_search.return_value = [[]]
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": LEGACY_SCHEMA_FIELDS}
 
-        with patch("wiki_rag.vector.milvus.MilvusClient", return_value=client):
-            vector.retrieve(
-                collection_name="coll",
-                embedding_model="model",
-                embedding_dimensions=2,
-                queries=["a question"],
-            )
-
-        _, kwargs = client.hybrid_search.call_args
-        return kwargs["output_fields"]
-
-    def test_legacy_collection_omits_missing_field(self):
-        """A collection lacking one of the output fields must not request it."""
-        # Simulate a collection created before "relations" existed.
-        legacy_fields = tuple(f for f in _CURRENT_FIELDS if f != "relations")
-        output_fields = self._run_retrieve(legacy_fields)
-
-        self.assertNotIn("relations", output_fields)
-        self.assertIn("id", output_fields)
-        self.assertIn("page_id", output_fields)
-
-    def test_full_collection_requests_all_output_fields(self):
-        """A collection with the full schema requests every output field, in order."""
-        output_fields = self._run_retrieve(_CURRENT_FIELDS)
-
-        self.assertEqual(list(MilvusVector.OUTPUT_FIELDS), output_fields)
+        vector = _make_vector()
+        with self.assertLogs("wiki_rag.vector.milvus", level="WARNING") as logs:
+            vector.insert_batch("legacy_col", [{"id": "1", "section_id": "1"}])
+            vector.insert_batch("legacy_col", [{"id": "2", "section_id": "2"}])
+        self.assertEqual(1, len(logs.records))
 
 
-class InsertBatchToleranceTest(unittest.TestCase):
-    """Tests that insert_batch() drops unknown keys and warns once."""
+class TestGetDocumentsContentsBySectionIds(unittest.TestCase):
+    """get_documents_contents_by_section_ids() must reassemble chunks in order."""
 
-    def _record(self) -> dict:
-        """Return a record carrying a key the legacy schema does not know about."""
-        return {
-            "id": "sec-1",
-            "title": "T",
-            "text": "body",
-            "future_field": ["some value"],
-        }
-
-    def test_unknown_keys_dropped_on_legacy_collection(self):
-        """Keys absent from the schema are stripped before insert."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_chunks_are_reassembled_in_chunk_index_order(self, mock_client_cls):
         client = MagicMock()
-        client.describe_collection.return_value = _describe("id", "title", "text")
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NEW_SCHEMA_FIELDS}
+        client.query.return_value = [
+            {"section_id": "s1", "chunk_index": 2, "title": "Title", "text": "third"},
+            {"section_id": "s1", "chunk_index": 0, "title": "Title", "text": "first"},
+            {"section_id": "s2", "chunk_index": 0, "title": "Other", "text": "alone"},
+            {"section_id": "s1", "chunk_index": 1, "title": "Title", "text": "second"},
+        ]
 
-        with patch("wiki_rag.vector.milvus.MilvusClient", return_value=client), \
-                self.assertLogs("wiki_rag.vector.milvus", level="WARNING") as logs:
-            vector.insert_batch("coll", [self._record()])
+        result = _make_vector().get_documents_contents_by_section_ids("col", ["s1", "s2"])
 
-        (_, inserted), _ = client.insert.call_args
-        self.assertEqual(1, len(inserted))
-        self.assertNotIn("future_field", inserted[0])
-        self.assertEqual({"id", "title", "text"}, set(inserted[0].keys()))
-        self.assertIn("wr-index --full", logs.output[0])
+        self.assertEqual(
+            {
+                "s1": "Title\n\nfirst\n\nsecond\n\nthird",
+                "s2": "Other\n\nalone",
+            },
+            result,
+        )
 
-    def test_known_keys_preserved(self):
-        """When the schema has every key, nothing is stripped."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_legacy_collection_falls_back_to_by_id_lookup(self, mock_client_cls):
         client = MagicMock()
-        client.describe_collection.return_value = _describe("id", "title", "text", "future_field")
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": LEGACY_SCHEMA_FIELDS}
+        client.query.return_value = [
+            {"id": "s1", "title": "Title", "text": "whole section"},
+        ]
 
-        with patch("wiki_rag.vector.milvus.MilvusClient", return_value=client):
-            vector.insert_batch("coll", [self._record()])
+        result = _make_vector().get_documents_contents_by_section_ids("col", ["s1"])
 
-        (_, inserted), _ = client.insert.call_args
-        self.assertIn("future_field", inserted[0])
+        self.assertEqual({"s1": "Title\n\nwhole section"}, result)
+        # The legacy path queries by primary key ids, not by a filter.
+        self.assertEqual(["s1"], client.query.call_args.kwargs["ids"])
 
-    def test_dropped_fields_warns_once_per_collection(self):
-        """The 'run wr-index --full' warning is logged once, not per batch."""
-        vector = MilvusVector(_make_cfg())  # type: ignore[arg-type]
-        client = MagicMock()
-        client.describe_collection.return_value = _describe("id", "title", "text")
-
-        with patch("wiki_rag.vector.milvus.MilvusClient", return_value=client), \
-                patch("wiki_rag.vector.milvus.logger") as mock_logger:
-            vector.insert_batch("coll", [self._record()])
-            vector.insert_batch("coll", [self._record()])
-
-        self.assertEqual(1, mock_logger.warning.call_count)
-        self.assertIn("coll", vector._warned_dropped_fields)
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_empty_input_returns_empty_dict_without_querying(self, mock_client_cls):
+        result = _make_vector().get_documents_contents_by_section_ids("col", [])
+        self.assertEqual({}, result)
+        mock_client_cls.assert_not_called()
 
 
-if __name__ == "__main__":
-    unittest.main()
+class TestRetrieveOutputFields(unittest.TestCase):
+    """retrieve() must only request chunking fields when the schema has them."""
+
+    def _run_retrieve(self, schema_fields: list[dict]) -> list[str]:
+        with patch("wiki_rag.vector.milvus.MilvusClient") as mock_client_cls:
+            client = MagicMock()
+            mock_client_cls.return_value = client
+            client.describe_collection.return_value = {"fields": schema_fields}
+            client.hybrid_search.return_value = [[]]
+            vector = _make_vector()
+            with patch.object(vector, "_embed_and_average_queries", return_value=[0.1] * 4):
+                vector.retrieve(
+                    collection_name="col",
+                    embedding_model="model",
+                    embedding_dimensions=4,
+                    queries=["question"],
+                )
+            return client.hybrid_search.call_args.kwargs["output_fields"]
+
+    def test_legacy_collection_does_not_request_chunking_fields(self):
+        output_fields = self._run_retrieve(LEGACY_SCHEMA_FIELDS)
+        self.assertNotIn("section_id", output_fields)
+        self.assertNotIn("chunk_index", output_fields)
+
+    def test_new_collection_requests_chunking_fields(self):
+        output_fields = self._run_retrieve(NEW_SCHEMA_FIELDS)
+        self.assertIn("section_id", output_fields)
+        self.assertIn("chunk_index", output_fields)

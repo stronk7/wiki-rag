@@ -12,10 +12,14 @@ import wiki_rag.vector as vector
 from wiki_rag import __version__
 from wiki_rag.config import LOG_LEVEL, load_config
 from wiki_rag.index.util import (
+    chunking_signature,
     create_temp_collection_schema,
     index_pages,
     index_pages_incremental,
     load_parsed_information,
+    marker_content,
+    marker_matches,
+    marker_signature,
     replace_previous_collection,
 )
 from wiki_rag.util import instance_lock, setup_logging
@@ -64,9 +68,18 @@ def main():
         # TODO: Make this to accept CLI argument or, by default, use the last file in the directory.
         input_file = cfg.loader.dump_path / input_candidate
 
-        # Skip indexing if this dump has already been indexed and --full was not requested.
+        # Skip indexing if this dump has already been indexed, with the same
+        # chunking settings, and --full was not requested.
+        signature = chunking_signature(
+            cfg.chunking.strategy, cfg.chunking.max_bytes, cfg.chunking.overlap_bytes,
+        )
         marker_file = cfg.loader.dump_path / f"{cfg.collection_name}.indexed"
-        if not args.full and marker_file.exists() and marker_file.read_text().strip() == input_file.name:
+        previous_marker = marker_file.read_text() if marker_file.exists() else ""
+        if (
+            not args.full
+            and previous_marker
+            and marker_matches(previous_marker, input_file.name, signature)
+        ):
             logger.info(f"Dump {input_file.name} was already indexed. Nothing to do.")
             return
 
@@ -85,8 +98,23 @@ def main():
         embedding_api_base = cfg.embedding_api_base or cfg.openai_api_base
         embedding_api_key = cfg.embedding_api_key or cfg.openai_api_key or ""
 
+        # With strategy "none" the only effective limit is the storage one
+        # (5000 bytes, see the vector schema), regardless of max_bytes.
+        chunk_max_bytes = 5000 if cfg.chunking.strategy == "none" else cfg.chunking.max_bytes
+
         if use_incremental:
             logger.info("Incremental indexing mode: updating live collection in-place.")
+            # An incremental run only re-chunks the changed pages, so a chunking
+            # change leaves the rest of the collection on the previous settings.
+            # Warn (mirroring the missing-field warning) and suggest a full reindex.
+            previous_signature = marker_signature(previous_marker) if previous_marker else ""
+            if previous_signature and previous_signature != signature:
+                logger.warning(
+                    f"Chunking settings changed ({previous_signature} -> {signature}) but this "
+                    f"is an incremental index: only changed pages will use the new chunking; the "
+                    f'rest of collection "{cfg.collection_name}" keeps the previous chunking. '
+                    "Run 'wr-index --full' to re-chunk the whole collection consistently."
+                )
             if not vector.store.collection_exists(cfg.collection_name):
                 logger.error(
                     f'Collection "{cfg.collection_name}" does not exist. '
@@ -97,6 +125,9 @@ def main():
                 pages, cfg.collection_name, cfg.embedding_model, cfg.embedding_dimensions,
                 embedding_api_base, embedding_api_key, cfg.embedding_max_retries,
                 cfg.embedding_batch_size,
+                chunk_strategy=cfg.chunking.strategy,
+                chunk_max_bytes=chunk_max_bytes,
+                chunk_overlap_bytes=cfg.chunking.overlap_bytes,
             )
             logger.info(
                 f"Incremental index complete — "
@@ -121,6 +152,9 @@ def main():
                 pages, temp_collection_name, cfg.embedding_model, cfg.embedding_dimensions,
                 embedding_api_base, embedding_api_key, cfg.embedding_max_retries,
                 cfg.embedding_batch_size,
+                chunk_strategy=cfg.chunking.strategy,
+                chunk_max_bytes=chunk_max_bytes,
+                chunk_overlap_bytes=cfg.chunking.overlap_bytes,
             )
             logger.info(f"Indexed {total_pages} pages ({total_sections} sections/chunks).")
 
@@ -131,7 +165,7 @@ def main():
             replace_previous_collection(cfg.collection_name, temp_collection_name)
             logger.info(f"Collection {cfg.collection_name} replaced with {temp_collection_name}.")
 
-        marker_file.write_text(input_file.name)
+        marker_file.write_text(marker_content(input_file.name, signature))
         logger.info(f"Marked {input_file.name} as indexed ({marker_file.name}).")
         logger.info("wiki_rag-index finished.")
 

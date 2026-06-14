@@ -114,6 +114,21 @@ index:
   # Vector-store backend. Currently supported: "milvus".
   vendor: "milvus"
 
+  # Index-time section chunking. Sections longer than max_bytes are split
+  # into multiple chunks (reassembled transparently at query time).
+  # Changing any of these requires a full reindex (wr-index --full) to
+  # take effect consistently across the whole collection.
+  chunking:
+    # Strategy: "none" (trim at the storage limit, historical behaviour),
+    # "fixed" (split at max_bytes on word boundaries, with overlap) or
+    # "paragraph" (pack whole paragraphs up to max_bytes; recommended).
+    strategy: "none"
+    # Maximum chunk size in UTF-8 bytes (1..5000, the storage field limit).
+    max_bytes: 3000
+    # Bytes from the end of a chunk repeated at the start of the next one
+    # ("fixed" strategy only). Must be smaller than max_bytes.
+    overlap_bytes: 300
+
 # ---------------------------------------------------------------------------
 # Embeddings
 # ---------------------------------------------------------------------------

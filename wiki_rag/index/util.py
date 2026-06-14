@@ -5,6 +5,7 @@
 
 import json
 import logging
+import uuid
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,6 +18,7 @@ from tqdm import tqdm
 import wiki_rag.vector as vector
 
 from wiki_rag import ROOT_DIR
+from wiki_rag.index.chunking import split_section
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,83 @@ def load_parsed_information(input_file: Path) -> dict:
         exit(1)
 
     return information
+
+
+def chunking_signature(strategy: str, max_bytes: int, overlap_bytes: int) -> str:
+    """Return the canonical chunking signature recorded in the marker file.
+
+    With strategy ``"none"`` the only effective limit is the storage one
+    (5000 bytes), so the signature is normalised to a constant: tweaking
+    max_bytes/overlap_bytes while keeping "none" must not invalidate the
+    marker (and legacy single-line markers map to this same value).
+
+    Args:
+        strategy: Chunking strategy name.
+        max_bytes: Maximum chunk size in UTF-8 bytes.
+        overlap_bytes: Overlap between consecutive chunks in UTF-8 bytes.
+
+    Returns:
+        The signature string, e.g. ``"paragraph:3000:300"``.
+
+    """
+    if strategy == "none":
+        return "none:5000:0"
+    return f"{strategy}:{max_bytes}:{overlap_bytes}"
+
+
+def marker_content(dump_name: str, signature: str) -> str:
+    """Return the idempotency marker file content for a just-indexed dump.
+
+    Args:
+        dump_name: Basename of the dump file that was indexed.
+        signature: Chunking signature (see :func:`chunking_signature`).
+
+    Returns:
+        The two-line marker content (dump name, then chunking signature).
+
+    """
+    return f"{dump_name}\n{signature}\n"
+
+
+def marker_signature(marker_text: str) -> str:
+    """Return the chunking signature recorded in a marker file.
+
+    Legacy single-line markers (written before chunking existed) carry an
+    implicit ``"none:5000:0"`` signature.
+
+    Args:
+        marker_text: Raw content of the marker file.
+
+    Returns:
+        The recorded chunking signature (see :func:`chunking_signature`).
+
+    """
+    lines = marker_text.strip().splitlines()
+    if len(lines) > 1:
+        return lines[1].strip()
+    return "none:5000:0"
+
+
+def marker_matches(marker_text: str, dump_name: str, signature: str) -> bool:
+    """Return True when the marker proves the dump is already indexed as configured.
+
+    Legacy single-line markers (written before chunking existed) carry an
+    implicit ``"none:5000:0"`` signature, so enabling or changing chunking
+    forces the next run to actually reindex.
+
+    Args:
+        marker_text: Raw content of the marker file.
+        dump_name: Basename of the dump file about to be indexed.
+        signature: Current chunking signature (see :func:`chunking_signature`).
+
+    Returns:
+        True when both the dump name and the chunking signature match.
+
+    """
+    lines = marker_text.strip().splitlines()
+    if not lines or lines[0].strip() != dump_name:
+        return False
+    return marker_signature(marker_text) == signature
 
 
 def create_temp_collection_schema(collection_name: str, embedding_dimension: int) -> None:
@@ -119,12 +198,22 @@ def index_pages(
         embedding_api_key: str = "",
         embedding_max_retries: int = 3,
         embedding_batch_size: int = 8,
+        chunk_strategy: str = "none",
+        chunk_max_bytes: int = 5000,
+        chunk_overlap_bytes: int = 0,
 ) -> list[int]:
     """Index the pages to the collection.
 
-    Sections are accumulated and embedded in batches of ``embedding_batch_size``
-    (one embedding request per batch instead of one per section), then inserted
-    together.
+    Section bodies are split into chunks according to *chunk_strategy* (see
+    :func:`wiki_rag.index.chunking.split_section`). Each chunk becomes one
+    vector-store record carrying the owning ``section_id`` and its 0-based
+    ``chunk_index``; the relationship fields keep referencing section ids.
+    The first chunk reuses the section's own id, so single-chunk sections
+    (the vast majority) produce records identical to the pre-chunking format.
+
+    Chunk records are accumulated and embedded in batches of
+    ``embedding_batch_size`` (one embedding request per batch instead of one
+    per chunk), then inserted together.
 
     Embedding API calls are retried on rate limits and transient errors:
     ``embedding_max_retries`` is passed to the OpenAI client, which backs off
@@ -167,44 +256,63 @@ def index_pages(
                 text_preamble = text_preamble + f" / {section['title']}"
             text_preamble = text_preamble.strip()
 
-            # Calculate the complete text (preamble + text, if existing).
+            # Split the section body into chunks. All limits are UTF-8 bytes
+            # (the vector-store varchar limit is byte-based); min() is a
+            # belt-and-braces guard so no strategy can ever exceed the
+            # 5000-byte storage limit of the "text" field.
             text_content = section["text"] if section["text"] else ""
-            # The Milvus "text" varchar limit is measured in UTF-8 bytes, not
-            # characters, so trim on the encoded byte length (decoding back on a
-            # codepoint boundary) to avoid silently dropping sections that contain
-            # multi-byte characters.
-            # TODO: split oversized sections into smaller chunks here instead of trimming.
-            encoded_text = text_content.encode("utf-8")
-            if len(encoded_text) > 5000:
-                text_content = encoded_text[:5000].decode("utf-8", errors="ignore").strip()
+            chunks = split_section(
+                text_content,
+                strategy=chunk_strategy,
+                max_bytes=min(chunk_max_bytes, 5000),
+                overlap_bytes=chunk_overlap_bytes,
+            )
+            if chunk_strategy == "none" and len(text_content.encode("utf-8")) > 5000:
                 logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 bytes.')
-            complete_text = text_preamble + "\n\n" + text_content
-            logger.debug(f"Queuing {text_preamble} for embedding, text len {len(text_content)}")
+            elif len(chunks) > 1:
+                logger.info(f'Section "{text_preamble}" split into {len(chunks)} chunks.')
 
-            # Build the record now, but leave dense_vector to be filled in at flush time.
-            pending_records.append({
-                "id": str(section["id"]),
-                "title": section["title"],
-                "text": text_content,
-                "source": section["source"],
-                "parent": str(section["parent"]) if section["parent"] else None,
-                "children": [str(child) for child in section["children"]],
-                "previous": [str(prv) for prv in section["previous"]],
-                "next": [str(nxt) for nxt in section["next"]],
-                "relations": [str(rel) for rel in section["relations"]],
-                "categories": [str(cat) for cat in page.get("categories", [])],
-                "page_id": int(section["page_id"]),
-                "doc_id": str(section["doc_id"]),
-                "doc_title": section["doc_title"],
-                "doc_hash": str(section["doc_hash"]),
-            })
-            pending_texts.append(complete_text)
+            section_id = str(section["id"])
+            for chunk_index, chunk_text in enumerate(chunks):
+                # Chunk 0 keeps the section's own id so single-chunk sections
+                # remain identical to the pre-chunking format and wiki-link
+                # relations keep resolving. Further chunks derive deterministic
+                # ids from the section id, mirroring how section ids derive
+                # from doc ids at load time.
+                if chunk_index == 0:
+                    chunk_id = section_id
+                else:
+                    chunk_id = str(uuid.uuid5(uuid.NAMESPACE_OID, f"{section_id}-{chunk_index}".encode()))
 
-            if len(pending_records) >= embedding_batch_size:
-                num_sections += _flush_embedding_batch(
-                    embeddings, collection_name, pending_records, pending_texts)
-                pending_records = []
-                pending_texts = []
+                complete_text = text_preamble + "\n\n" + chunk_text
+                logger.debug(f"Queuing {text_preamble} (chunk {chunk_index}) for embedding, text len {len(chunk_text)}")
+
+                # Build the record now, but leave dense_vector to be filled in at flush time.
+                pending_records.append({
+                    "id": chunk_id,
+                    "section_id": section_id,
+                    "chunk_index": chunk_index,
+                    "title": section["title"],
+                    "text": chunk_text,
+                    "source": section["source"],
+                    "parent": str(section["parent"]) if section["parent"] else None,
+                    "children": [str(child) for child in section["children"]],
+                    "previous": [str(prv) for prv in section["previous"]],
+                    "next": [str(nxt) for nxt in section["next"]],
+                    "relations": [str(rel) for rel in section["relations"]],
+                    "categories": [str(cat) for cat in page.get("categories", [])],
+                    "page_id": int(section["page_id"]),
+                    "doc_id": str(section["doc_id"]),
+                    "doc_title": section["doc_title"],
+                    "doc_hash": str(section["doc_hash"]),
+                })
+                pending_texts.append(complete_text)
+
+                if len(pending_records) >= embedding_batch_size:
+                    num_sections += _flush_embedding_batch(
+                        embeddings, collection_name, pending_records, pending_texts)
+                    pending_records = []
+                    pending_texts = []
         num_pages += 1
 
     # Flush any trailing partial batch.
@@ -222,6 +330,9 @@ def index_pages_incremental(
         embedding_api_key: str = "",
         embedding_max_retries: int = 3,
         embedding_batch_size: int = 8,
+        chunk_strategy: str = "none",
+        chunk_max_bytes: int = 5000,
+        chunk_overlap_bytes: int = 0,
 ) -> dict[str, int]:
     """Incrementally update the live collection based on each page's change_type.
 
@@ -240,6 +351,10 @@ def index_pages_incremental(
         embedding_max_retries: Max retries for embedding API calls (rate limits
             and transient errors).
         embedding_batch_size: Number of sections embedded per API call.
+        chunk_strategy: Section chunking strategy (see
+            :func:`wiki_rag.index.chunking.split_section`).
+        chunk_max_bytes: Maximum chunk size in UTF-8 bytes.
+        chunk_overlap_bytes: Overlap between consecutive chunks in UTF-8 bytes.
 
     Returns:
         Summary dict with keys ``"deleted"``, ``"updated"``, ``"created"``,
@@ -270,6 +385,9 @@ def index_pages_incremental(
     [_, sections_indexed] = index_pages(
         pages_to_insert, collection_name, embedding_model, embedding_dimension,
         embedding_api_base, embedding_api_key, embedding_max_retries, embedding_batch_size,
+        chunk_strategy=chunk_strategy,
+        chunk_max_bytes=chunk_max_bytes,
+        chunk_overlap_bytes=chunk_overlap_bytes,
     )
     counts["sections_indexed"] = sections_indexed
 

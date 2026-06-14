@@ -80,6 +80,28 @@ class BaseVector(ABC):
         """
 
     @abstractmethod
+    def get_documents_contents_by_section_ids(self,
+        collection_name: str,
+        section_ids: list[str],
+    ) -> dict[str, str]:
+        """Retrieve full section contents, reassembling chunks in order.
+
+        For collections with chunking support, all chunks sharing each
+        ``section_id`` are fetched, ordered by ``chunk_index`` and joined
+        with a blank line, with the title emitted once. For legacy
+        collections (no ``section_id`` field) this behaves exactly like
+        :meth:`get_documents_contents_by_id`.
+
+        Args:
+            collection_name: Target collection / index.
+            section_ids: List of section ids to retrieve.
+
+        Returns:
+            Dictionary of section ids as keys and reassembled contents as values.
+
+        """
+
+    @abstractmethod
     def retrieve(self,
         collection_name: str,
         embedding_model: str,

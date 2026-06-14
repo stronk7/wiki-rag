@@ -98,6 +98,21 @@ class LoaderConfig:
 
 
 @dataclasses.dataclass(frozen=True)
+class ChunkingConfig:
+    """Index-time section chunking configuration.
+
+    Sections whose body exceeds ``max_bytes`` UTF-8 bytes are split into
+    multiple chunks at index time (and transparently reassembled at query
+    time). Strategy ``"none"`` preserves the historical behaviour of
+    trimming at the storage limit.
+    """
+
+    strategy: str       # "none" | "fixed" | "paragraph"
+    max_bytes: int      # Upper bound for every chunk, in UTF-8 bytes.
+    overlap_bytes: int  # Overlap between consecutive chunks ("fixed" only).
+
+
+@dataclasses.dataclass(frozen=True)
 class SearchConfig:
     """Search and RAG generation configuration."""
 
@@ -180,6 +195,7 @@ class Config:
     loader: LoaderConfig
     collection_name: str
     index_vendor: str
+    chunking: ChunkingConfig
     embedding_model: str
     embedding_dimensions: int
     embedding_max_retries: int
@@ -487,6 +503,9 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
     loader_dump_path_raw = _v("LOADER_DUMP_PATH", "loader.dump_path", "")
     collection_name = _v("COLLECTION_NAME", "collection.name")
     index_vendor = _v("INDEX_VENDOR", "index.vendor", "milvus")
+    chunk_strategy_raw = _v("INDEX_CHUNK_STRATEGY", "index.chunking.strategy", "none")
+    chunk_max_bytes_raw = _v("INDEX_CHUNK_MAX_BYTES", "index.chunking.max_bytes", "3000")
+    chunk_overlap_raw = _v("INDEX_CHUNK_OVERLAP_BYTES", "index.chunking.overlap_bytes", "300")
 
     # --- Loader-only ---
     excluded_raw = _v("MEDIAWIKI_EXCLUDED", "mediawiki.excluded")
@@ -658,6 +677,33 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         )
         sys.exit(1)
 
+    # Validate the index chunking settings.
+    # Valid strategies mirror wiki_rag/index/chunking.py:STRATEGIES (kept as a
+    # literal here to avoid a config -> index module dependency).
+    chunk_strategy = str(chunk_strategy_raw or "none").strip().lower()
+    chunk_max_bytes = _parse_int(chunk_max_bytes_raw, default=3000)
+    chunk_overlap_bytes = _parse_int(chunk_overlap_raw, default=300)
+    if chunk_strategy not in {"none", "fixed", "paragraph"}:
+        logger.error(
+            "INDEX_CHUNK_STRATEGY (index.chunking.strategy) must be one of "
+            "'none', 'fixed' or 'paragraph'. Exiting."
+        )
+        sys.exit(1)
+    if not 0 < chunk_max_bytes <= 5000:
+        # 5000 is the vector-store "text" field storage limit (UTF-8 bytes),
+        # see wiki_rag/vector/milvus.py.
+        logger.error(
+            "INDEX_CHUNK_MAX_BYTES (index.chunking.max_bytes) must be between "
+            "1 and 5000 (the storage field limit). Exiting."
+        )
+        sys.exit(1)
+    if not 0 <= chunk_overlap_bytes < chunk_max_bytes:
+        logger.error(
+            "INDEX_CHUNK_OVERLAP_BYTES (index.chunking.overlap_bytes) must be "
+            "zero or positive and smaller than max_bytes. Exiting."
+        )
+        sys.exit(1)
+
     # ------------------------------------------------------------------
     # 5. Ensure data directory exists.
     # ------------------------------------------------------------------
@@ -741,6 +787,11 @@ def load_config(command: str, config_path: Path | None = None) -> Config:
         ),
         collection_name=str(collection_name or ""),
         index_vendor=str(index_vendor or "milvus"),
+        chunking=ChunkingConfig(
+            strategy=chunk_strategy,
+            max_bytes=chunk_max_bytes,
+            overlap_bytes=chunk_overlap_bytes,
+        ),
         embedding_model=str(embedding_model or ""),
         embedding_dimensions=embedding_dimensions,
         embedding_max_retries=embedding_max_retries,

@@ -60,6 +60,8 @@ class MilvusVector(BaseVector):
         "relations",
         "categories",
         "page_id",
+        "section_id",
+        "chunk_index",
     )
 
     def __init__(self, cfg: Config) -> None:
@@ -269,6 +271,49 @@ class MilvusVector(BaseVector):
         milvus.close()
         return missing_docs
 
+    def get_documents_contents_by_section_ids(
+        self,
+        collection_name: str,
+        section_ids: list[str],
+    ) -> dict[str, str]:
+        """Retrieve full section contents, reassembling chunks in order.
+
+        Args:
+            collection_name: Target Milvus collection.
+            section_ids: List of section ids to retrieve.
+
+        Returns:
+            Dictionary of section ids as keys and reassembled contents
+            (title once, then every chunk text in chunk_index order) as values.
+
+        """
+        if not section_ids:
+            return {}
+
+        client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
+        try:
+            if "section_id" not in self._collection_fields(client, collection_name):
+                # Legacy collection: every record is its own single-chunk section.
+                return self.get_documents_contents_by_id(collection_name, section_ids)
+            rows = client.query(
+                collection_name,
+                filter=f"section_id in {section_ids}",
+                output_fields=["section_id", "chunk_index", "title", "text"],
+            )
+        finally:
+            client.close()
+
+        grouped: dict[str, list[dict]] = {}
+        for row in rows:
+            grouped.setdefault(row["section_id"], []).append(row)
+        return {
+            section_id: "\n\n".join(
+                [chunks[0]["title"]]
+                + [chunk["text"] for chunk in sorted(chunks, key=lambda chunk: chunk["chunk_index"])]
+            )
+            for section_id, chunks in grouped.items()
+        }
+
     def retrieve(self,
             collection_name: str,
             embedding_model: str,
@@ -417,6 +462,10 @@ class MilvusVector(BaseVector):
             FieldSchema(name="doc_id", dtype=DataType.VARCHAR, max_length=100),
             FieldSchema(name="doc_title", dtype=DataType.VARCHAR, max_length=1000),
             FieldSchema(name="doc_hash", dtype=DataType.VARCHAR, max_length=100),
+            # section_id holds the owning section's UUID (equal to id for the
+            # first chunk) and chunk_index the 0-based chunk order.
+            FieldSchema(name="section_id", dtype=DataType.VARCHAR, max_length=100),
+            FieldSchema(name="chunk_index", dtype=DataType.INT32),
         ]
         schema = CollectionSchema(fields)
 

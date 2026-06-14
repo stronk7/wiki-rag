@@ -257,6 +257,50 @@ class TestLoadConfigEnvOnly(unittest.TestCase):
         cfg = self._load("index", {"EMBEDDING_BATCH_SIZE": "32"})
         self.assertEqual(32, cfg.embedding_batch_size)
 
+    def test_chunking_defaults(self):
+        cfg = self._load("index")
+        self.assertEqual("none", cfg.chunking.strategy)
+        self.assertEqual(3000, cfg.chunking.max_bytes)
+        self.assertEqual(300, cfg.chunking.overlap_bytes)
+
+    def test_chunking_from_env(self):
+        cfg = self._load("index", extra_env={
+            "INDEX_CHUNK_STRATEGY": "paragraph",
+            "INDEX_CHUNK_MAX_BYTES": "1500",
+            "INDEX_CHUNK_OVERLAP_BYTES": "100",
+        })
+        self.assertEqual("paragraph", cfg.chunking.strategy)
+        self.assertEqual(1500, cfg.chunking.max_bytes)
+        self.assertEqual(100, cfg.chunking.overlap_bytes)
+
+    def test_chunking_from_yaml_overrides_env(self):
+        yaml_content = "index:\n  chunking:\n    strategy: fixed\n    max_bytes: 2000\n    overlap_bytes: 50\n"
+        config_path = _write_yaml(yaml_content)
+        try:
+            env = {**_MINIMAL_ENV_INDEX, "INDEX_CHUNK_STRATEGY": "paragraph"}
+            with patch("wiki_rag.config.load_dotenv"), patch.dict(os.environ, env, clear=True):
+                cfg = load_config(command="index", config_path=config_path)
+            self.assertEqual("fixed", cfg.chunking.strategy)
+            self.assertEqual(2000, cfg.chunking.max_bytes)
+            self.assertEqual(50, cfg.chunking.overlap_bytes)
+        finally:
+            config_path.unlink()
+
+    def test_chunking_invalid_strategy_exits(self):
+        with self.assertRaises(SystemExit):
+            self._load("index", extra_env={"INDEX_CHUNK_STRATEGY": "bogus"})
+
+    def test_chunking_max_bytes_over_storage_limit_exits(self):
+        with self.assertRaises(SystemExit):
+            self._load("index", extra_env={"INDEX_CHUNK_MAX_BYTES": "6000"})
+
+    def test_chunking_overlap_not_smaller_than_max_exits(self):
+        with self.assertRaises(SystemExit):
+            self._load("index", extra_env={
+                "INDEX_CHUNK_MAX_BYTES": "1000",
+                "INDEX_CHUNK_OVERLAP_BYTES": "1000",
+            })
+
     def test_rate_limiting_defaults_to_true(self):
         cfg = self._load("load")
         self.assertTrue(cfg.loader.rate_limiting)

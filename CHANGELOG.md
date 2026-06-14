@@ -11,8 +11,15 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 ### Added
 
 - Index: Include page categories in chunk metadata by @fank ([6079b50](https://github.com/moodlehq/wiki-rag/commit/6079b50905c85ca802bb960692ef35cae7cc1137))
-- Index: Make embedding API retries configurable ([24318f1](https://github.com/moodlehq/wiki-rag/commit/24318f1e8cc3e86be862972f1fd45316ce69451e))
-- Index: Embed and insert sections in batches
+- Index: Make embedding API retries configurable by @stronk7 ([24318f1](https://github.com/moodlehq/wiki-rag/commit/24318f1e8cc3e86be862972f1fd45316ce69451e))
+- Index: Embed and insert sections in batches by @stronk7 ([9718a7f](https://github.com/moodlehq/wiki-rag/commit/9718a7f29ceef4e91cba8e664191cc5ecebd1b3c))
+- Index: Chunk sections at index time with chunk-aware search
+  - **BREAKING**: existing collections keep working unchanged for both
+indexing and search, but the new section_id/chunk_index fields are only
+populated by a full reindex. Running `wr-index --full` once is highly
+recommended so the whole collection is re-chunked and chunk reassembly
+takes effect.
+
 
 ### Changed
 
