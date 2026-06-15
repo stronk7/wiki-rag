@@ -270,7 +270,7 @@ def index_pages(
             if chunk_strategy == "none" and len(text_content.encode("utf-8")) > 5000:
                 logger.warning(f'Text too long for section "{text_preamble}", trimmed to 5000 bytes.')
             elif len(chunks) > 1:
-                logger.info(f'Section "{text_preamble}" split into {len(chunks)} chunks.')
+                logger.debug(f'Section "{text_preamble}" split into {len(chunks)} chunks.')
 
             section_id = str(section["id"])
             for chunk_index, chunk in enumerate(chunks):

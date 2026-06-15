@@ -10,7 +10,11 @@ and commits should be formatted using [Conventional Commits](https://www.convent
 
 ### Added
 
-- Index: Make overlap embed-only and add separator-aware reconstruction
+- Index: Make overlap embed-only and add separator-aware reconstruction by @stronk7 ([ec9449f](https://github.com/moodlehq/wiki-rag/commit/ec9449fdd85e73b79f520f7edb267388c7e1a8da))
+
+### Fixed
+
+- Logging: Lower some indexing logging to DEBUG (from INFO)
 
 ## [0.17.0] - 2026-06-14
 
