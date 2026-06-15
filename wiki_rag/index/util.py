@@ -273,7 +273,7 @@ def index_pages(
                 logger.info(f'Section "{text_preamble}" split into {len(chunks)} chunks.')
 
             section_id = str(section["id"])
-            for chunk_index, chunk_text in enumerate(chunks):
+            for chunk_index, chunk in enumerate(chunks):
                 # Chunk 0 keeps the section's own id so single-chunk sections
                 # remain identical to the pre-chunking format and wiki-link
                 # relations keep resolving. Further chunks derive deterministic
@@ -284,8 +284,12 @@ def index_pages(
                 else:
                     chunk_id = str(uuid.uuid5(uuid.NAMESPACE_OID, f"{section_id}-{chunk_index}".encode()))
 
-                complete_text = text_preamble + "\n\n" + chunk_text
-                logger.debug(f"Queuing {text_preamble} (chunk {chunk_index}) for embedding, text len {len(chunk_text)}")
+                # embed_text carries the overlap prefix (if any) from the previous
+                # chunk so that dense vectors capture concepts spanning chunk
+                # boundaries.  The stored text field is overlap-free so that
+                # section reconstruction is clean.
+                complete_text = text_preamble + "\n\n" + chunk.embed_text
+                logger.debug(f"Queuing {text_preamble} (chunk {chunk_index}) for embedding, text len {len(chunk.text)}")
 
                 # Build the record now, but leave dense_vector to be filled in at flush time.
                 pending_records.append({
@@ -293,7 +297,8 @@ def index_pages(
                     "section_id": section_id,
                     "chunk_index": chunk_index,
                     "title": section["title"],
-                    "text": chunk_text,
+                    "text": chunk.text,
+                    "chunk_separator": chunk.separator,
                     "source": section["source"],
                     "parent": str(section["parent"]) if section["parent"] else None,
                     "children": [str(child) for child in section["children"]],

@@ -62,6 +62,7 @@ class MilvusVector(BaseVector):
         "page_id",
         "section_id",
         "chunk_index",
+        "chunk_separator",
     )
 
     def __init__(self, cfg: Config) -> None:
@@ -276,7 +277,13 @@ class MilvusVector(BaseVector):
         collection_name: str,
         section_ids: list[str],
     ) -> dict[str, str]:
-        """Retrieve full section contents, reassembling chunks in order.
+        r"""Retrieve full section contents, reassembling chunks in order.
+
+        Chunks are sorted by ``chunk_index`` and joined using the stored
+        ``chunk_separator`` field when available, which faithfully reproduces
+        the original section body (space, single newline, or paragraph break
+        at each chunk boundary).  Collections that predate the
+        ``chunk_separator`` field fall back to joining with ``"\n\n"``.
 
         Args:
             collection_name: Target Milvus collection.
@@ -284,7 +291,8 @@ class MilvusVector(BaseVector):
 
         Returns:
             Dictionary of section ids as keys and reassembled contents
-            (title once, then every chunk text in chunk_index order) as values.
+            (section title once, then chunk bodies joined by their recorded
+            separators) as values.
 
         """
         if not section_ids:
@@ -292,13 +300,17 @@ class MilvusVector(BaseVector):
 
         client = MilvusClient(self.uri, token=self.token, timeout=self.timeout)
         try:
-            if "section_id" not in self._collection_fields(client, collection_name):
+            fields = self._collection_fields(client, collection_name)
+            if "section_id" not in fields:
                 # Legacy collection: every record is its own single-chunk section.
                 return self.get_documents_contents_by_id(collection_name, section_ids)
+            output_fields = ["section_id", "chunk_index", "title", "text"]
+            if "chunk_separator" in fields:
+                output_fields.append("chunk_separator")
             rows = client.query(
                 collection_name,
                 filter=f"section_id in {section_ids}",
-                output_fields=["section_id", "chunk_index", "title", "text"],
+                output_fields=output_fields,
             )
         finally:
             client.close()
@@ -306,13 +318,22 @@ class MilvusVector(BaseVector):
         grouped: dict[str, list[dict]] = {}
         for row in rows:
             grouped.setdefault(row["section_id"], []).append(row)
-        return {
-            section_id: "\n\n".join(
-                [chunks[0]["title"]]
-                + [chunk["text"] for chunk in sorted(chunks, key=lambda chunk: chunk["chunk_index"])]
-            )
-            for section_id, chunks in grouped.items()
-        }
+
+        result: dict[str, str] = {}
+        for section_id, chunks in grouped.items():
+            sorted_chunks = sorted(chunks, key=lambda c: c["chunk_index"])
+            title = sorted_chunks[0]["title"]
+            # Build the body by joining consecutive chunk texts with the
+            # separator recorded in the preceding chunk.  When chunk_separator
+            # is absent from the row (collection predates the field), fall back
+            # to "\n\n" to preserve the pre-separator behaviour.
+            body_parts = [sorted_chunks[0]["text"]]
+            for prev_chunk, next_chunk in zip(sorted_chunks, sorted_chunks[1:], strict=False):
+                sep = prev_chunk.get("chunk_separator")
+                body_parts.append(sep if sep is not None else "\n\n")
+                body_parts.append(next_chunk["text"])
+            result[section_id] = title + "\n\n" + "".join(body_parts)
+        return result
 
     def retrieve(self,
             collection_name: str,
@@ -463,9 +484,14 @@ class MilvusVector(BaseVector):
             FieldSchema(name="doc_title", dtype=DataType.VARCHAR, max_length=1000),
             FieldSchema(name="doc_hash", dtype=DataType.VARCHAR, max_length=100),
             # section_id holds the owning section's UUID (equal to id for the
-            # first chunk) and chunk_index the 0-based chunk order.
+            # first chunk), chunk_index the 0-based chunk order, and
+            # chunk_separator the whitespace that originally separated this
+            # chunk from the next one in the source section ("" for the last
+            # chunk).  Joining chunk.text + chunk.separator across all chunks
+            # in chunk_index order reproduces the original section body.
             FieldSchema(name="section_id", dtype=DataType.VARCHAR, max_length=100),
             FieldSchema(name="chunk_index", dtype=DataType.INT32),
+            FieldSchema(name="chunk_separator", dtype=DataType.VARCHAR, max_length=16),
         ]
         schema = CollectionSchema(fields)
 

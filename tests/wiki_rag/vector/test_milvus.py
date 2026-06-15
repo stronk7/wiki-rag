@@ -15,12 +15,19 @@ NEW_SCHEMA_FIELDS = [
     {"name": "children"}, {"name": "previous"}, {"name": "next"},
     {"name": "relations"}, {"name": "page_id"}, {"name": "doc_id"},
     {"name": "doc_title"}, {"name": "doc_hash"},
-    {"name": "section_id"}, {"name": "chunk_index"},
+    {"name": "section_id"}, {"name": "chunk_index"}, {"name": "chunk_separator"},
+]
+
+# Collections that have chunking fields but predate chunk_separator (created
+# between the chunking feature and this change).  Used for backward-compat tests.
+NO_SEPARATOR_SCHEMA_FIELDS = [
+    field for field in NEW_SCHEMA_FIELDS
+    if field["name"] != "chunk_separator"
 ]
 
 LEGACY_SCHEMA_FIELDS = [
     field for field in NEW_SCHEMA_FIELDS
-    if field["name"] not in {"section_id", "chunk_index"}
+    if field["name"] not in {"section_id", "chunk_index", "chunk_separator"}
 ]
 
 
@@ -91,26 +98,69 @@ class TestGetDocumentsContentsBySectionIds(unittest.TestCase):
     """get_documents_contents_by_section_ids() must reassemble chunks in order."""
 
     @patch("wiki_rag.vector.milvus.MilvusClient")
-    def test_chunks_are_reassembled_in_chunk_index_order(self, mock_client_cls):
+    def test_chunks_are_reassembled_using_recorded_separators(self, mock_client_cls):
+        """chunk_separator is used when the field is present in the schema."""
         client = MagicMock()
         mock_client_cls.return_value = client
         client.describe_collection.return_value = {"fields": NEW_SCHEMA_FIELDS}
         client.query.return_value = [
-            {"section_id": "s1", "chunk_index": 2, "title": "Title", "text": "third"},
-            {"section_id": "s1", "chunk_index": 0, "title": "Title", "text": "first"},
-            {"section_id": "s2", "chunk_index": 0, "title": "Other", "text": "alone"},
-            {"section_id": "s1", "chunk_index": 1, "title": "Title", "text": "second"},
+            {"section_id": "s1", "chunk_index": 2, "title": "Title", "text": "third", "chunk_separator": ""},
+            {"section_id": "s1", "chunk_index": 0, "title": "Title", "text": "first", "chunk_separator": " "},
+            {"section_id": "s2", "chunk_index": 0, "title": "Other", "text": "alone", "chunk_separator": ""},
+            {"section_id": "s1", "chunk_index": 1, "title": "Title", "text": "second", "chunk_separator": "\n\n"},
         ]
 
         result = _make_vector().get_documents_contents_by_section_ids("col", ["s1", "s2"])
 
         self.assertEqual(
             {
-                "s1": "Title\n\nfirst\n\nsecond\n\nthird",
+                "s1": "Title\n\nfirst second\n\nthird",
                 "s2": "Other\n\nalone",
             },
             result,
         )
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_chunks_without_separator_field_fall_back_to_double_newline(self, mock_client_cls):
+        r"""Collections without chunk_separator join chunks with \n\n (pre-separator behaviour)."""
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NO_SEPARATOR_SCHEMA_FIELDS}
+        client.query.return_value = [
+            {"section_id": "s1", "chunk_index": 2, "title": "Title", "text": "third"},
+            {"section_id": "s1", "chunk_index": 0, "title": "Title", "text": "first"},
+            {"section_id": "s1", "chunk_index": 1, "title": "Title", "text": "second"},
+        ]
+
+        result = _make_vector().get_documents_contents_by_section_ids("col", ["s1"])
+
+        self.assertEqual({"s1": "Title\n\nfirst\n\nsecond\n\nthird"}, result)
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_chunk_separator_included_in_query_output_fields_when_available(self, mock_client_cls):
+        """chunk_separator is requested only when the schema has the field."""
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NEW_SCHEMA_FIELDS}
+        client.query.return_value = []
+
+        _make_vector().get_documents_contents_by_section_ids("col", ["s1"])
+
+        output_fields = client.query.call_args.kwargs["output_fields"]
+        self.assertIn("chunk_separator", output_fields)
+
+    @patch("wiki_rag.vector.milvus.MilvusClient")
+    def test_chunk_separator_not_requested_for_old_chunking_schema(self, mock_client_cls):
+        """No chunk_separator in output_fields for collections without the field."""
+        client = MagicMock()
+        mock_client_cls.return_value = client
+        client.describe_collection.return_value = {"fields": NO_SEPARATOR_SCHEMA_FIELDS}
+        client.query.return_value = []
+
+        _make_vector().get_documents_contents_by_section_ids("col", ["s1"])
+
+        output_fields = client.query.call_args.kwargs["output_fields"]
+        self.assertNotIn("chunk_separator", output_fields)
 
     @patch("wiki_rag.vector.milvus.MilvusClient")
     def test_legacy_collection_falls_back_to_by_id_lookup(self, mock_client_cls):
@@ -162,3 +212,4 @@ class TestRetrieveOutputFields(unittest.TestCase):
         output_fields = self._run_retrieve(NEW_SCHEMA_FIELDS)
         self.assertIn("section_id", output_fields)
         self.assertIn("chunk_index", output_fields)
+        self.assertIn("chunk_separator", output_fields)
